@@ -116,7 +116,7 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Tenant configuration
-TENANT_DOMAIN = os.getenv('TENANT_DOMAIN', 'kitagli.com')
+TENANT_DOMAIN = os.getenv('TENANT_DOMAIN', 'surgir.online')
 
 # PostgreSQL Master Credentials (para crear BDs de tenants)
 POSTGRES_MASTER_USER = os.getenv('POSTGRES_MASTER_USER', 'postgres')
