@@ -28,8 +28,6 @@ services:
       TZ: America/Lima
     networks:
       - tenant-network
-    depends_on:
-      - postgres16
 
 networks:
   tenant-network:
