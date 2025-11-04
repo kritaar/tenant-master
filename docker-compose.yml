@@ -1,0 +1,110 @@
+services:
+  traefik:
+    image: traefik:v3.1
+    container_name: tenant-master-traefik
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.le.acme.tlschallenge=true
+      - --certificatesresolvers.le.acme.email=${LE_EMAIL}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      - --api.insecure=false
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+    networks:
+      - tenant-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  panel:
+    build: ./app/backend
+    container_name: tenant-master-panel
+    image: tenant-master-panel:latest
+    environment:
+      - DEBUG=${DEBUG:-False}
+      - SECRET_KEY=${DJANGO_SECRET_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - BASE_DOMAIN=${BASE_DOMAIN}
+      - PANEL_DOMAIN=${PANEL_DOMAIN}
+      - MASTER_USERNAME=${MASTER_USERNAME}
+      - PORTAINER_BASE=${PORTAINER_BASE}
+      - PORTAINER_API_KEY=${PORTAINER_API_KEY}
+      - PORTAINER_ENDPOINT_ID=${PORTAINER_ENDPOINT_ID}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.panel.rule=Host(`${PANEL_DOMAIN}`)"
+      - "traefik.http.routers.panel.entrypoints=websecure"
+      - "traefik.http.routers.panel.tls.certresolver=le"
+      - "traefik.http.services.panel.loadbalancer.server.port=8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - tenant-network
+    volumes:
+      - panel_static:/app/staticfiles
+      - panel_media:/app/media
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: tenant-master-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - tenant-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: tenant-master-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - tenant-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  tenant-network:
+    driver: bridge
+
+volumes:
+  traefik_letsencrypt:
+  redis_data:
+  panel_static:
+  panel_media:
+  postgres_data:
