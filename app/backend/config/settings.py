@@ -114,6 +114,14 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_TRUSTED_ORIGINS = [
+    f'https://{PANEL_DOMAIN}',
+    f'https://*.{BASE_DOMAIN}',
+]
+
+if DEBUG:
+    CSRF_TRUSTED_ORIGINS.append('http://localhost:8000')
+    CSRF_TRUSTED_ORIGINS.append('http://127.0.0.1:8000')
 
 BASE_DOMAIN = config('BASE_DOMAIN', default='surgir.online')
 PANEL_DOMAIN = config('PANEL_DOMAIN', default='panel.surgir.online')
