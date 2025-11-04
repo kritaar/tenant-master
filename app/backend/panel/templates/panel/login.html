@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Tenant Master</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-indigo-600 to-purple-700 min-h-screen flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">Tenant Master</h1>
+            <p class="text-gray-600 mt-2">Panel de Administración</p>
+        </div>
+
+        {% if form.errors %}
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+            <span class="block sm:inline">Usuario o contraseña incorrectos</span>
+        </div>
+        {% endif %}
+
+        <form method="post" action="{% url 'login' %}">
+            {% csrf_token %}
+            
+            <div class="mb-4">
+                <label for="id_username" class="block text-gray-700 text-sm font-bold mb-2">
+                    Usuario
+                </label>
+                <input type="text" 
+                       name="username" 
+                       id="id_username"
+                       class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                       required>
+            </div>
+
+            <div class="mb-6">
+                <label for="id_password" class="block text-gray-700 text-sm font-bold mb-2">
+                    Contraseña
+                </label>
+                <input type="password" 
+                       name="password" 
+                       id="id_password"
+                       class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                       required>
+            </div>
+
+            <button type="submit" 
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded w-full focus:outline-none focus:shadow-outline">
+                Iniciar Sesión
+            </button>
+        </form>
+    </div>
+</body>
+</html>

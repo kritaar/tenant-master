@@ -1,0 +1,2 @@
+# Este archivo mantiene la carpeta postgres/ en Git
+# Los datos reales de PostgreSQL serán ignorados por .gitignore

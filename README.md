@@ -1,219 +1,149 @@
-# 🚀 TENANT MASTER - Sistema de Administración Multi-Tenant
+# Tenant Master - Multi-Tenant Panel
 
-Sistema completo de administración para gestionar múltiples productos SaaS con arquitectura híbrida (Shared + Dedicated containers).
+Sistema multi-tenant con panel de administración, runtime compartido, base de datos por tenant y soporte para deployments dedicados.
 
-## 📋 Características
+## 🏗️ Arquitectura
 
-- ✅ **Arquitectura Híbrida**: Contenedores compartidos y dedicados
-- ✅ **Multi-Tenant**: Una base de datos por cliente
-- ✅ **Multi-Producto**: Inventario, ERP, Shop, Landing Pages
-- ✅ **Migración de Planes**: Cambio automático entre Shared ↔ Dedicated
-- ✅ **Panel Admin Moderno**: 100% Responsive con Tailwind CSS
-- ✅ **PostgreSQL 16**: Base de datos robusta
-- ✅ **Docker**: Despliegue fácil y escalable
+- **Runtime compartido**: Un solo stack Django sirve múltiples tenants
+- **DB por tenant**: Cada cliente tiene su propia base de datos PostgreSQL
+- **Deployments dedicados**: Opción de stack completo aislado por cliente
+- **SSO maestro**: Login único para administrar todos los tenants
+- **Auto-deploy**: Stack desde Git con Portainer
 
-## 🎨 Stack Tecnológico
+## 🚀 Inicio Rápido
 
-- **Backend**: Django 5.0
-- **Frontend**: Tailwind CSS 3.4
-- **Base de Datos**: PostgreSQL 16
-- **Servidor**: Gunicorn
-- **Containerización**: Docker + Docker Compose
+### Pre-requisitos
+
+1. VPS con Docker + Portainer instalado
+2. Dominio con DNS configurado:
+   - `panel.surgir.online` → IP del VPS
+   - `*.surgir.online` → IP del VPS (wildcard)
+
+### Deployment
+
+1. **Clonar este repositorio**
+
+2. **En Portainer:**
+   - Ir a **Stacks** → **Add Stack**
+   - Seleccionar **Repository**
+   - Repository URL: `https://github.com/kritaar/tenant_master`
+   - Compose path: `infra/core/docker-compose.yml`
+   - Auto update: ✅ Activar
+
+3. **Configurar variables de entorno** (copiar de `infra/core/.env.example`):
+   ```env
+   LE_EMAIL=admin@surgir.online
+   PANEL_DOMAIN=panel.surgir.online
+   BASE_DOMAIN=surgir.online
+   POSTGRES_PASSWORD=tu_password_seguro
+   DJANGO_SECRET_KEY=tu_secret_key_aleatorio
+   MASTER_USERNAME=admin
+   PORTAINER_BASE=http://portainer:9000
+   PORTAINER_API_KEY=tu_api_key
+   ```
+
+4. **Deploy** y esperar 2-3 minutos
+
+5. **Acceder al panel:**
+   ```
+   https://panel.surgir.online
+   ```
+
+### Primer uso
+
+1. Crear superusuario:
+   ```bash
+   docker exec -it tenant-master-panel python manage.py createsuperuser
+   ```
+
+2. Acceder al panel con las credenciales creadas
+
+3. Ya puedes crear workspaces desde el panel
 
 ## 📦 Estructura del Proyecto
 
 ```
 tenant-master/
-├── backend/
-│   ├── config/              # Configuración Django
-│   ├── accounts/            # App principal
-│   │   ├── models.py        # Modelos (Product, Workspace, etc)
-│   │   ├── views.py         # Vistas
-│   │   ├── utils.py         # Utilidades (deploy, migrate, etc)
-│   │   └── templates/       # Templates HTML
-│   ├── manage.py
-│   └── requirements.txt
-├── Dockerfile
-├── docker-compose.yml
-├── .env
-└── README.md
+├── infra/                      # Infraestructura como código
+│   ├── core/                   # Stack principal
+│   ├── deployments/            # Plantillas para dedicados
+│   └── scripts/                # Scripts de operaciones
+├── app/                        # Aplicación
+│   ├── backend/                # Django + API
+│   └── products/               # Productos (placeholders)
+└── specs/                      # Documentación
 ```
 
-## 🚀 Instalación Rápida
+## 🔧 Operaciones
 
-### 1. Clonar y Configurar
+### Crear Tenant Shared
 
+Desde el panel → Crear Workspace → tipo "Shared"
+
+Automáticamente:
+- Crea DB en PostgreSQL
+- Ejecuta migraciones
+- Genera subdominio: `{nombre}.surgir.online`
+
+### Crear Tenant Dedicado
+
+1. Desde el panel → Crear Workspace → tipo "Dedicated"
+2. Sistema crea configuración y stack en Portainer
+3. Stack dedicado levanta en su propio namespace
+
+### Migraciones
+
+Aplicar migraciones a todos los tenants:
 ```bash
-# En tu VPS
-cd /opt/proyectos/
-git clone [tu-repo] tenant-master
-cd tenant-master
-
-# Copiar .env de ejemplo
-cp .env.example .env
-nano .env  # Editar variables
+docker exec tenant-master-panel python /scripts/migrate_all.py
 ```
 
-### 2. Construir y Levantar
+### Backups
 
+Ejecutar backup de todas las bases de datos:
 ```bash
-docker-compose up -d --build
+docker exec tenant-master-panel bash /scripts/backup.sh
 ```
 
-### 3. Inicializar Base de Datos
+## 🌐 Productos Disponibles
 
-```bash
-# Crear superusuario
-docker exec -it tenant-master python manage.py createsuperuser
+- 📦 Sistema de Inventario
+- 💼 Sistema ERP
+- 🛒 E-commerce
+- 🌐 Landing Pages
 
-# Inicializar productos
-docker exec -it tenant-master python manage.py shell < backend/init_products.py
-```
+## 🔒 Seguridad
 
-### 4. Acceder
+- TLS automático con Let's Encrypt
+- Cookies seguras (HttpOnly, Secure, SameSite)
+- Aislamiento de datos por tenant
+- Secrets vía variables de entorno
+- Solo superusuario accede al panel
 
-- **Panel Admin**: http://tu-vps:8001
-- **Login**: usa el superusuario creado
+## 📊 Monitoreo
 
-## 🔧 Comandos Útiles
+- Logs: `docker logs -f tenant-master-panel`
+- Health checks automáticos
+- Portainer dashboard para métricas
 
-```bash
-# Ver logs
-docker logs -f tenant-master
+## 🆘 Troubleshooting
 
-# Reiniciar
-docker-compose restart
+### Panel no accesible
 
-# Ver estado
-docker-compose ps
+1. Verificar DNS: `nslookup panel.surgir.online`
+2. Verificar contenedores: `docker ps`
+3. Ver logs: `docker logs tenant-master-traefik`
 
-# Ejecutar migraciones
-docker exec -it tenant-master python manage.py migrate
+### Tenant no accesible
 
-# Shell Django
-docker exec -it tenant-master python manage.py shell
-```
+1. Verificar en panel que el workspace está activo
+2. Verificar DB existe: `docker exec tenant-master-postgres psql -U tenant_admin -l`
+3. Ver logs: `docker logs tenant-master-panel`
 
-## 📊 Arquitectura
+## 📝 Licencia
 
-### Contenedores Compartidos (Shared)
-- Planes: Free, Starter, Business
-- Múltiples clientes en un solo contenedor
-- Separación por base de datos
+Privado - Uso interno
 
-### Contenedores Dedicados (Dedicated)
-- Planes: Enterprise, Lifetime
-- Un contenedor por cliente
-- Recursos aislados
+## 👥 Contacto
 
-### Puertos Asignados
-
-```
-8001 - Tenant Master (Panel Admin)
-8100 - Inventario System (Shared)
-8101-8150 - Inventario (Dedicated)
-8200 - ERP System (Shared)
-8201-8250 - ERP (Dedicated)
-8300 - Shop System (Shared)
-8301-8350 - Shop (Dedicated)
-8400 - Landing Builder (Shared)
-8401-8450 - Landing (Dedicated)
-```
-
-## 🎯 Flujo de Trabajo
-
-### Crear Nuevo Cliente
-
-1. Ir a **Espacios de trabajo** → **+ Nuevo workspace**
-2. Llenar datos:
-   - Nombre comercial
-   - Subdominio
-   - Producto (Inventario, ERP, etc)
-   - Plan (Free, Starter, Business, Enterprise, Lifetime)
-3. El sistema automáticamente:
-   - Crea base de datos PostgreSQL
-   - Asigna contenedor (shared o dedicated según plan)
-   - Configura subdominio
-   - Aplica migraciones
-
-### Cambiar Plan de Cliente
-
-1. Seleccionar workspace
-2. Click en **Cambiar plan**
-3. Elegir nuevo plan
-4. Si requiere migración (Shared ↔ Dedicated):
-   - El sistema automáticamente clona/elimina stack
-   - Mantiene la misma base de datos
-   - Reconfigura enrutamiento
-
-## 🗄️ Base de Datos
-
-### Tenant Master (tenant_master)
-Base de datos principal que contiene:
-- Productos disponibles
-- Workspaces de clientes
-- Usuarios y membresías
-- Logs de actividad
-- Historial de cambios de plan
-
-### Bases de Datos de Clientes
-Cada cliente tiene su propia base de datos:
-- `inventario_[slug]`
-- `erp_[slug]`
-- `shop_[slug]`
-- `landing_[slug]`
-
-## 🔐 Seguridad
-
-- ✅ Passwords seguros autogenerados
-- ✅ Separación de bases de datos
-- ✅ Variables de entorno para secrets
-- ✅ ALLOWED_HOSTS configurado
-- ✅ CORS configurado
-
-## 📱 Responsive Design
-
-El panel admin es 100% responsive:
-- **Mobile**: < 640px
-- **Tablet**: 640px - 1024px
-- **Desktop**: > 1024px
-
-## 🐛 Troubleshooting
-
-### Error: "column does not exist"
-```bash
-# Aplicar migraciones
-docker exec -it tenant-master python manage.py migrate
-```
-
-### PostgreSQL no conecta
-```bash
-# Verificar que postgres está corriendo
-docker ps | grep postgres
-
-# Ver logs
-docker logs postgres16
-```
-
-### Puerto ya en uso
-```bash
-# Ver qué usa el puerto
-sudo lsof -i :8001
-
-# Cambiar puerto en docker-compose.yml
-```
-
-## 📞 Soporte
-
-Para problemas o dudas:
-1. Revisar logs: `docker logs tenant-master`
-2. Ver documentación de Django
-3. Revisar issues en GitHub
-
-## 📄 Licencia
-
-Propietario - Todos los derechos reservados
-
----
-
-**Desarrollado con ❤️ por kitagli.com**
+jesus@surgir.online

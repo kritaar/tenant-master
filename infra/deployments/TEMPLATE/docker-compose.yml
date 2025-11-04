@@ -1,0 +1,62 @@
+services:
+  app:
+    image: ${APP_IMAGE:-tenant-master-panel:latest}
+    container_name: ${TENANT_NAME}-app
+    environment:
+      - DEBUG=False
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=postgresql://${TENANT_DB_USER}:${TENANT_DB_PASSWORD}@postgres:5432/${TENANT_DB_NAME}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - ALLOWED_HOSTS=${TENANT_DOMAIN}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${TENANT_NAME}.rule=Host(`${TENANT_DOMAIN}`)"
+      - "traefik.http.routers.${TENANT_NAME}.entrypoints=websecure"
+      - "traefik.http.routers.${TENANT_NAME}.tls.certresolver=le"
+      - "traefik.http.services.${TENANT_NAME}.loadbalancer.server.port=8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - tenant-network
+    volumes:
+      - app_static:/app/staticfiles
+      - app_media:/app/media
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: ${TENANT_NAME}-postgres
+    environment:
+      POSTGRES_DB: ${TENANT_DB_NAME}
+      POSTGRES_USER: ${TENANT_DB_USER}
+      POSTGRES_PASSWORD: ${TENANT_DB_PASSWORD}
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+    networks:
+      - tenant-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TENANT_DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ${TENANT_NAME}-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - tenant-network
+    restart: unless-stopped
+
+networks:
+  tenant-network:
+    external: true
+
+volumes:
+  app_static:
+  app_media:
+  redis_data:

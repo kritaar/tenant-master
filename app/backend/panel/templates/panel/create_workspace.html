@@ -1,0 +1,49 @@
+{% extends 'panel/base.html' %}
+{% block title %}Crear Workspace{% endblock %}
+{% block content %}
+<h1 class="text-3xl font-bold mb-8">Crear Nuevo Workspace</h1>
+<form method="post" class="bg-white rounded-lg shadow p-6 max-w-2xl">
+{% csrf_token %}
+<div class="mb-4">
+<label class="block text-gray-700 mb-2">Nombre de la Empresa</label>
+<input type="text" name="company_name" class="w-full border rounded px-3 py-2" required>
+</div>
+<div class="mb-4">
+<label class="block text-gray-700 mb-2">Subdominio</label>
+<input type="text" name="subdomain" class="w-full border rounded px-3 py-2" required>
+</div>
+<div class="mb-4">
+<label class="block text-gray-700 mb-2">Producto</label>
+<select name="product" class="w-full border rounded px-3 py-2" required>
+{% for product in products %}
+<option value="{{ product.id }}">{{ product.icon }} {{ product.display_name }}</option>
+{% endfor %}
+</select>
+</div>
+<div class="mb-4">
+<label class="block text-gray-700 mb-2">Plan</label>
+<select name="plan" class="w-full border rounded px-3 py-2">
+<option value="free">Gratuito</option>
+<option value="starter">Starter</option>
+<option value="professional">Profesional</option>
+<option value="enterprise">Enterprise</option>
+</select>
+</div>
+<div class="mb-4">
+<label class="block text-gray-700 mb-2">Tipo</label>
+<select name="type" class="w-full border rounded px-3 py-2">
+<option value="shared">Compartido</option>
+<option value="dedicated">Dedicado</option>
+</select>
+</div>
+<div class="mb-4">
+<label class="block text-gray-700 mb-2">Usuario Propietario</label>
+<select name="owner_username" class="w-full border rounded px-3 py-2" required>
+{% for user in users %}
+<option value="{{ user.username }}">{{ user.username }}</option>
+{% endfor %}
+</select>
+</div>
+<button type="submit" class="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700">Crear Workspace</button>
+</form>
+{% endblock %}

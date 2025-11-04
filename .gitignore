@@ -4,6 +4,9 @@ __pycache__/
 *$py.class
 *.so
 .Python
+env/
+venv/
+ENV/
 build/
 develop-eggs/
 dist/
@@ -28,14 +31,10 @@ db.sqlite3-journal
 /staticfiles/
 /media/
 
-# Environment
+# Environment variables
 .env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+.env.local
+*.env
 
 # IDEs
 .vscode/
@@ -43,10 +42,26 @@ venv.bak/
 *.swp
 *.swo
 *~
-
-# OS
 .DS_Store
-Thumbs.db
 
 # Docker
 docker-compose.override.yml
+
+# PostgreSQL data
+infra/core/postgres/*
+!infra/core/postgres/.gitkeep
+infra/deployments/*/postgres/*
+!infra/deployments/*/postgres/.gitkeep
+
+# Traefik certificates
+infra/core/traefik/acme.json
+letsencrypt/
+
+# Logs
+*.log
+logs/
+
+# Backups
+backups/
+*.sql
+*.dump
