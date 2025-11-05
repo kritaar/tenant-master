@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-erp_db}
+      POSTGRES_USER: ${DB_USER:-erp_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - erp-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-erp_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    environment:
+      - DB_NAME=${DB_NAME:-erp_db}
+      - DB_USER=${DB_USER:-erp_user}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-change-this}
+      - DEBUG=${DEBUG:-False}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-http://localhost}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - erp-network
+    volumes:
+      - static_files:/app/staticfiles
+      - media_files:/app/media
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "${PORT:-80}:80"
+    depends_on:
+      - backend
+    networks:
+      - erp-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.erp-${TENANT_SCHEMA}.rule=Host(`${TENANT_SUBDOMAIN}.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.erp-${TENANT_SCHEMA}.entrypoints=websecure"
+      - "traefik.http.routers.erp-${TENANT_SCHEMA}.tls.certresolver=le"
+      - "traefik.http.services.erp-${TENANT_SCHEMA}.loadbalancer.server.port=80"
+
+networks:
+  erp-network:
+    driver: bridge
+  default:
+    external: true
+    name: tenant-network
+
+volumes:
+  postgres_data:
+  static_files:
+  media_files:

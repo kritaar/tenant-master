@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema ERP</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // API Configuration
+        const API_URL = window.location.origin + '/api';
+
+        // API Service
+        const api = {
+            get: async (endpoint) => {
+                const response = await fetch(`${API_URL}${endpoint}`, {
+                    credentials: 'include',
+                });
+                if (!response.ok) throw new Error('Error en la petición');
+                return response.json();
+            },
+            post: async (endpoint, data) => {
+                const response = await fetch(`${API_URL}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(data),
+                });
+                if (!response.ok) throw new Error('Error en la petición');
+                return response.json();
+            },
+            put: async (endpoint, data) => {
+                const response = await fetch(`${API_URL}${endpoint}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(data),
+                });
+                if (!response.ok) throw new Error('Error en la petición');
+                return response.json();
+            },
+            delete: async (endpoint) => {
+                const response = await fetch(`${API_URL}${endpoint}`, {
+                    method: 'DELETE',
+                    credentials: 'include',
+                });
+                if (!response.ok) throw new Error('Error en la petición');
+                return response.ok;
+            },
+        };
+
+        // Main App Component
+        function App() {
+            const [currentView, setCurrentView] = useState('dashboard');
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+
+            useEffect(() => {
+                // Load initial data
+                setLoading(false);
+            }, []);
+
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center">
+                        <div className="text-2xl text-gray-600">Cargando...</div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen flex">
+                    <Sidebar currentView={currentView} setCurrentView={setCurrentView} />
+                    <MainContent currentView={currentView} />
+                </div>
+            );
+        }
+
+        // Sidebar Component
+        function Sidebar({ currentView, setCurrentView }) {
+            const menuItems = [
+                { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+                { id: 'productos', icon: '📦', label: 'Productos' },
+                { id: 'clientes', icon: '👥', label: 'Clientes' },
+                { id: 'proveedores', icon: '🏢', label: 'Proveedores' },
+                { id: 'compras', icon: '🛒', label: 'Compras' },
+                { id: 'ventas', icon: '💰', label: 'Ventas' },
+                { id: 'inventario', icon: '📋', label: 'Inventario' },
+            ];
+
+            return (
+                <div className="w-64 bg-gray-900 text-white min-h-screen">
+                    <div className="p-6 border-b border-gray-700">
+                        <h1 className="text-2xl font-bold">Sistema ERP</h1>
+                        <p className="text-sm text-gray-400 mt-1">Gestión v1.0</p>
+                    </div>
+                    
+                    <nav className="p-4">
+                        {menuItems.map(item => (
+                            <button
+                                key={item.id}
+                                onClick={() => setCurrentView(item.id)}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors ${
+                                    currentView === item.id
+                                        ? 'bg-blue-600 text-white'
+                                        : 'text-gray-300 hover:bg-gray-800'
+                                }`}
+                            >
+                                <span className="text-xl">{item.icon}</span>
+                                <span className="font-medium">{item.label}</span>
+                            </button>
+                        ))}
+                    </nav>
+                </div>
+            );
+        }
+
+        // Main Content Component
+        function MainContent({ currentView }) {
+            const views = {
+                dashboard: <Dashboard />,
+                productos: <ProductosView />,
+                clientes: <ClientesView />,
+                proveedores: <ProveedoresView />,
+                compras: <ComprasView />,
+                ventas: <VentasView />,
+                inventario: <InventarioView />,
+            };
+
+            return (
+                <div className="flex-1 p-8 fade-in">
+                    {views[currentView]}
+                </div>
+            );
+        }
+
+        // Dashboard Component
+        function Dashboard() {
+            const [stats, setStats] = useState(null);
+
+            useEffect(() => {
+                loadStats();
+            }, []);
+
+            const loadStats = async () => {
+                try {
+                    const [productoStats, ventaStats] = await Promise.all([
+                        api.get('/productos/estadisticas/'),
+                        api.get('/ventas/estadisticas/'),
+                    ]);
+                    setStats({ ...productoStats, ...ventaStats });
+                } catch (error) {
+                    console.error('Error loading stats:', error);
+                }
+            };
+
+            if (!stats) {
+                return <div>Cargando estadísticas...</div>;
+            }
+
+            return (
+                <div>
+                    <h2 className="text-3xl font-bold text-gray-900 mb-6">Dashboard</h2>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <StatCard
+                            title="Productos"
+                            value={stats.total_productos || 0}
+                            color="blue"
+                            icon="📦"
+                        />
+                        <StatCard
+                            title="Stock Bajo"
+                            value={stats.productos_stock_bajo || 0}
+                            color="yellow"
+                            icon="⚠️"
+                        />
+                        <StatCard
+                            title="Ventas Hoy"
+                            value={`S/ ${(stats.ventas_hoy || 0).toFixed(2)}`}
+                            color="green"
+                            icon="💰"
+                        />
+                        <StatCard
+                            title="Ventas Mes"
+                            value={`S/ ${(stats.ventas_mes || 0).toFixed(2)}`}
+                            color="purple"
+                            icon="📈"
+                        />
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <h3 className="text-xl font-bold text-gray-900 mb-4">Actividad Reciente</h3>
+                        <p className="text-gray-600">No hay actividad reciente</p>
+                    </div>
+                </div>
+            );
+        }
+
+        // Productos View
+        function ProductosView() {
+            const [productos, setProductos] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [searchTerm, setSearchTerm] = useState('');
+
+            useEffect(() => {
+                loadProductos();
+            }, []);
+
+            const loadProductos = async () => {
+                try {
+                    const data = await api.get('/productos/');
+                    setProductos(data.results || data);
+                } catch (error) {
+                    console.error('Error loading productos:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const filteredProductos = productos.filter(p =>
+                p.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                p.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+
+            if (loading) return <div>Cargando productos...</div>;
+
+            return (
+                <div>
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-3xl font-bold text-gray-900">Productos</h2>
+                        <button className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                            ➕ Nuevo Producto
+                        </button>
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow mb-6 p-4">
+                        <input
+                            type="text"
+                            placeholder="🔍 Buscar producto..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                        />
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow overflow-hidden">
+                        <table className="w-full">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Precio</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {filteredProductos.map(producto => (
+                                    <tr key={producto.id} className="hover:bg-gray-50">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            {producto.codigo}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-900">
+                                            {producto.nombre}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {producto.categoria}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            <span className={`font-medium ${
+                                                producto.stock_actual <= producto.stock_minimo
+                                                    ? 'text-red-600'
+                                                    : 'text-green-600'
+                                            }`}>
+                                                {producto.stock_actual}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            S/ {producto.precio_venta}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            <button className="text-blue-600 hover:text-blue-800 mr-3">Editar</button>
+                                            <button className="text-red-600 hover:text-red-800">Eliminar</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+
+        // Simplified views for other sections
+        function ClientesView() {
+            return <div><h2 className="text-3xl font-bold">Clientes</h2><p className="mt-4">Gestión de clientes próximamente...</p></div>;
+        }
+
+        function ProveedoresView() {
+            return <div><h2 className="text-3xl font-bold">Proveedores</h2><p className="mt-4">Gestión de proveedores próximamente...</p></div>;
+        }
+
+        function ComprasView() {
+            return <div><h2 className="text-3xl font-bold">Compras</h2><p className="mt-4">Gestión de compras próximamente...</p></div>;
+        }
+
+        function VentasView() {
+            return <div><h2 className="text-3xl font-bold">Ventas</h2><p className="mt-4">Gestión de ventas próximamente...</p></div>;
+        }
+
+        function InventarioView() {
+            return <div><h2 className="text-3xl font-bold">Inventario</h2><p className="mt-4">Movimientos de inventario próximamente...</p></div>;
+        }
+
+        // Stat Card Component
+        function StatCard({ title, value, color, icon }) {
+            const colors = {
+                blue: 'border-blue-500',
+                yellow: 'border-yellow-500',
+                green: 'border-green-500',
+                purple: 'border-purple-500',
+            };
+
+            return (
+                <div className={`bg-white rounded-lg shadow p-6 border-t-4 ${colors[color]}`}>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm text-gray-600 mb-1">{title}</p>
+                            <p className="text-3xl font-bold text-gray-900">{value}</p>
+                        </div>
+                        <span className="text-4xl">{icon}</span>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render App
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
