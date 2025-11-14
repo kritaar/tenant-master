@@ -16,7 +16,7 @@ urlpatterns = [
     
     path('clients/', views.clients, name='clients'),
     path('deployments/', views.deployments, name='deployments'),
-    path('deployments/sync/', views.sync_deployments, name='sync_deployments'),
+    #path('deployments/sync/', views.sync_deployments, name='sync_deployments'),
     path('products/', views.products, name='products'),
     path('databases/', views.databases, name='databases'),
     path('activity/', views.activity, name='activity'),
