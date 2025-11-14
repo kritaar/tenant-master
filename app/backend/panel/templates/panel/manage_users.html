@@ -1,0 +1,232 @@
+{% extends 'panel/base.html' %}
+
+{% block title %}Gestionar Usuarios - {{ tenant.company_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+            <a href="{% url 'workspace_detail' tenant.id %}" class="text-gray-600 hover:text-gray-900">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">Gestionar Usuarios</h1>
+                <p class="text-gray-600 mt-2">{{ tenant.company_name }} - {{ tenant.product.display_name }}</p>
+            </div>
+        </div>
+        <button onclick="document.getElementById('createUserModal').classList.remove('hidden')" 
+                class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg">
+            <i class="fas fa-user-plus mr-2"></i>Nuevo Usuario
+        </button>
+    </div>
+</div>
+
+<!-- Lista de Usuarios -->
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Usuario</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Teléfono</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo Login</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Creado</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+            {% for user in users %}
+            <tr class="hover:bg-gray-50 {% if user.is_super_admin %}bg-yellow-50{% endif %}">
+                <td class="px-6 py-4">
+                    <div class="flex items-center">
+                        {% if user.is_super_admin %}
+                        <i class="fas fa-crown text-yellow-500 mr-2"></i>
+                        {% else %}
+                        <i class="fas fa-user text-gray-400 mr-2"></i>
+                        {% endif %}
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">{{ user.username }}</div>
+                            {% if user.is_super_admin %}
+                            <div class="text-xs text-yellow-600">Super Admin</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-900">
+                    {{ user.email|default:"-" }}
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-900">
+                    {{ user.phone|default:"-" }}
+                </td>
+                <td class="px-6 py-4">
+                    <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                        {{ user.login_type }}
+                    </span>
+                </td>
+                <td class="px-6 py-4">
+                    <span class="px-2 py-1 text-xs rounded-full 
+                        {% if user.is_active %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                        {% if user.is_active %}Activo{% else %}Inactivo{% endif %}
+                    </span>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-500">
+                    {{ user.created_at|date:"d/m/Y" }}
+                </td>
+                <td class="px-6 py-4 text-right text-sm">
+                    {% if not user.is_super_admin %}
+                    <button onclick="confirmDelete({{ user.id }}, '{{ user.username }}')" 
+                            class="text-red-600 hover:text-red-900">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    {% else %}
+                    <span class="text-gray-400 text-xs">Protegido</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+                    <i class="fas fa-users text-6xl text-gray-300 mb-4"></i>
+                    <p class="text-lg">No hay usuarios creados</p>
+                    <p class="text-sm text-gray-400 mt-2">Crea el primer usuario para este workspace</p>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal Crear Usuario -->
+<div id="createUserModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-medium text-gray-900">Crear Nuevo Usuario</h3>
+            <button onclick="document.getElementById('createUserModal').classList.add('hidden')" 
+                    class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create">
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Nombre de Usuario <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" 
+                           name="username" 
+                           required
+                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Contraseña <span class="text-red-500">*</span>
+                    </label>
+                    <input type="password" 
+                           name="password" 
+                           required
+                           minlength="6"
+                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input type="email" 
+                           name="email"
+                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Teléfono</label>
+                    <input type="tel" 
+                           name="phone"
+                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Tipo de Login <span class="text-red-500">*</span>
+                    </label>
+                    <select name="login_type" 
+                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500">
+                        <option value="username">Usuario</option>
+                        <option value="email">Email</option>
+                        <option value="phone">Teléfono</option>
+                        <option value="custom">Personalizado</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">
+                        Define qué campo se usará para el login
+                    </p>
+                </div>
+            </div>
+            
+            <div class="flex space-x-3 mt-6">
+                <button type="submit" 
+                        class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg">
+                    <i class="fas fa-check mr-2"></i>Crear Usuario
+                </button>
+                <button type="button" 
+                        onclick="document.getElementById('createUserModal').classList.add('hidden')"
+                        class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg">
+                    Cancelar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Confirmar Eliminación -->
+<div id="deleteModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <h3 class="text-lg font-medium text-gray-900">¿Eliminar usuario?</h3>
+            <p class="mt-2 text-sm text-gray-500" id="deleteMessage"></p>
+            <form method="post" id="deleteForm">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="user_id" id="deleteUserId">
+                
+                <div class="mt-4 flex space-x-3">
+                    <button type="submit" 
+                            class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">
+                        Eliminar
+                    </button>
+                    <button type="button" 
+                            onclick="document.getElementById('deleteModal').classList.add('hidden')"
+                            class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg">
+                        Cancelar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDelete(userId, username) {
+    document.getElementById('deleteUserId').value = userId;
+    document.getElementById('deleteMessage').textContent = 
+        `¿Estás seguro de eliminar al usuario "${username}"? Esta acción no se puede deshacer.`;
+    document.getElementById('deleteModal').classList.remove('hidden');
+}
+
+// Cerrar modales al hacer clic fuera
+document.getElementById('createUserModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        this.classList.add('hidden');
+    }
+});
+
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        this.classList.add('hidden');
+    }
+});
+</script>
+
+{% endblock %}
