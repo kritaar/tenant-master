@@ -1,55 +1,272 @@
 {% extends 'panel/base.html' %}
 
-{% block title %}Detalle Workspace{% endblock %}
+{% block title %}{{ tenant.company_name }} - Workspace{% endblock %}
 
 {% block content %}
 <div class="mb-8">
-    <h1 class="text-3xl font-bold text-gray-900">{{ tenant.company_name }}</h1>
-    <p class="text-gray-600 mt-2">Workspace {{ tenant.subdomain }}</p>
-</div>
-
-<div class="bg-white rounded-lg shadow p-6 mb-6">
-    <h2 class="text-xl font-semibold mb-4">Información</h2>
-    <div class="grid grid-cols-2 gap-4">
-        <div>
-            <p class="text-gray-600">Subdominio</p>
-            <p class="font-semibold">{{ tenant.subdomain }}</p>
+    <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+            <a href="{% url 'workspaces' %}" class="text-gray-600 hover:text-gray-900">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">{{ tenant.company_name }}</h1>
+                <p class="text-gray-600 mt-2">
+                    {{ tenant.product.icon }} {{ tenant.product.display_name }} • 
+                    <a href="{{ tenant.url }}" target="_blank" class="text-indigo-600 hover:text-indigo-800">
+                        {{ tenant.subdomain }}.surgir.online <i class="fas fa-external-link-alt text-xs"></i>
+                    </a>
+                </p>
+            </div>
         </div>
-        <div>
-            <p class="text-gray-600">URL</p>
-            <p class="font-semibold"><a href="{{ tenant.url }}" target="_blank" class="text-indigo-600">{{ tenant.url }}</a></p>
-        </div>
-        <div>
-            <p class="text-gray-600">Base de datos</p>
-            <p class="font-semibold">{{ tenant.db_name }}</p>
-        </div>
-        <div>
-            <p class="text-gray-600">Estado</p>
-            <p class="font-semibold">{{ tenant.get_status_display }}</p>
-        </div>
-        <div>
-            <p class="text-gray-600">Tipo</p>
-            <p class="font-semibold">{{ tenant.get_type_display }}</p>
-        </div>
-        <div>
-            <p class="text-gray-600">Plan</p>
-            <p class="font-semibold">{{ tenant.get_plan_display }}</p>
+        <div class="flex space-x-3">
+            <a href="{% url 'manage_workspace_users' tenant.id %}" 
+               class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg shadow">
+                <i class="fas fa-users mr-2"></i>Gestionar Usuarios
+            </a>
+            <a href="{% url 'edit_workspace' tenant.id %}" 
+               class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg shadow">
+                <i class="fas fa-edit mr-2"></i>Editar
+            </a>
         </div>
     </div>
 </div>
 
-<div class="bg-white rounded-lg shadow p-6">
-    <h2 class="text-xl font-semibold mb-4">Actividad Reciente</h2>
-    <div class="space-y-3">
-        {% for log in activity %}
-        <div class="border-b py-2">
-            <p class="font-semibold">{{ log.get_action_display }}</p>
-            <p class="text-sm text-gray-600">{{ log.description }}</p>
-            <p class="text-xs text-gray-400">{{ log.created_at|timesince }} ago</p>
+<!-- Grid de información -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Información Principal -->
+    <div class="lg:col-span-2 bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-6">Información del Workspace</h2>
+        
+        <div class="grid grid-cols-2 gap-6">
+            <div>
+                <p class="text-sm text-gray-600 mb-1">Subdominio</p>
+                <p class="text-lg font-semibold text-gray-900">{{ tenant.subdomain }}</p>
+            </div>
+            
+            <div>
+                <p class="text-sm text-gray-600 mb-1">Producto</p>
+                <p class="text-lg font-semibold text-gray-900">
+                    {{ tenant.product.icon }} {{ tenant.product.display_name }}
+                </p>
+            </div>
+            
+            <div>
+                <p class="text-sm text-gray-600 mb-1">Tipo</p>
+                <span class="px-3 py-1 text-sm rounded-full 
+                    {% if tenant.type == 'shared' %}bg-blue-100 text-blue-800
+                    {% else %}bg-purple-100 text-purple-800{% endif %}">
+                    {{ tenant.get_type_display }}
+                </span>
+            </div>
+            
+            <div>
+                <p class="text-sm text-gray-600 mb-1">Estado</p>
+                <span class="px-3 py-1 text-sm rounded-full 
+                    {% if tenant.status == 'active' %}bg-green-100 text-green-800
+                    {% elif tenant.status == 'suspended' %}bg-yellow-100 text-yellow-800
+                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                    {{ tenant.get_status_display }}
+                </span>
+            </div>
+            
+            <div>
+                <p class="text-sm text-gray-600 mb-1">Plan</p>
+                <span class="px-3 py-1 text-sm rounded-full bg-gray-100 text-gray-800">
+                    {{ tenant.get_plan_display }}
+                </span>
+            </div>
+            
+            <div>
+                <p class="text-sm text-gray-600 mb-1">Propietario</p>
+                <p class="text-lg font-semibold text-gray-900">{{ tenant.owner.username }}</p>
+            </div>
+            
+            <div class="col-span-2 border-t pt-4">
+                <p class="text-sm text-gray-600 mb-1">Base de Datos</p>
+                <code class="text-sm bg-gray-100 px-3 py-1 rounded">{{ tenant.db_name }}</code>
+            </div>
+            
+            {% if tenant.project_path %}
+            <div class="col-span-2">
+                <p class="text-sm text-gray-600 mb-1">Ruta del Proyecto</p>
+                <code class="text-sm bg-gray-100 px-3 py-1 rounded block overflow-x-auto">{{ tenant.project_path }}</code>
+            </div>
+            {% endif %}
+            
+            {% if tenant.git_repo_url %}
+            <div class="col-span-2">
+                <p class="text-sm text-gray-600 mb-1">Repositorio Git</p>
+                <a href="{{ tenant.git_repo_url }}" target="_blank" class="text-indigo-600 hover:text-indigo-800">
+                    {{ tenant.git_repo_url }} <i class="fas fa-external-link-alt text-xs"></i>
+                </a>
+            </div>
+            {% endif %}
         </div>
-        {% empty %}
-        <p class="text-gray-500">No hay actividad</p>
-        {% endfor %}
+    </div>
+    
+    <!-- Panel Lateral -->
+    <div class="space-y-6">
+        <!-- Estadísticas -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Estadísticas</h3>
+            <div class="space-y-3">
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Usuarios:</span>
+                    <span class="font-semibold">{{ product_users|length }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Máx. Usuarios:</span>
+                    <span class="font-semibold">{{ tenant.max_users }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Almacenamiento:</span>
+                    <span class="font-semibold">{{ tenant.storage_limit_gb }} GB</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Fechas -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Información Temporal</h3>
+            <div class="space-y-3">
+                <div>
+                    <span class="text-sm text-gray-600">Creado:</span>
+                    <p class="font-semibold">{{ tenant.created_at|date:"d/m/Y H:i" }}</p>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-600">Última actualización:</span>
+                    <p class="font-semibold">{{ tenant.updated_at|date:"d/m/Y H:i" }}</p>
+                </div>
+                {% if tenant.deployed_at %}
+                <div>
+                    <span class="text-sm text-gray-600">Desplegado:</span>
+                    <p class="font-semibold">{{ tenant.deployed_at|date:"d/m/Y H:i" }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Acciones -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Acciones</h3>
+            <div class="space-y-2">
+                {% if tenant.status == 'active' %}
+                <form method="post" action="{% url 'workspace_action' tenant.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="suspend">
+                    <button type="submit" class="w-full bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm">
+                        <i class="fas fa-pause mr-2"></i>Suspender
+                    </button>
+                </form>
+                {% elif tenant.status == 'suspended' %}
+                <form method="post" action="{% url 'workspace_action' tenant.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="activate">
+                    <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm">
+                        <i class="fas fa-play mr-2"></i>Activar
+                    </button>
+                </form>
+                {% endif %}
+                
+                <form method="post" action="{% url 'workspace_action' tenant.id %}" 
+                      onsubmit="return confirm('¿Eliminar este workspace?')">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete">
+                    <button type="submit" class="w-full bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm">
+                        <i class="fas fa-trash mr-2"></i>Eliminar
+                    </button>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
+
+<!-- Usuarios del Workspace -->
+<div class="bg-white rounded-lg shadow mb-6">
+    <div class="px-6 py-4 border-b flex justify-between items-center">
+        <h2 class="text-xl font-semibold text-gray-900">
+            <i class="fas fa-users text-indigo-600 mr-2"></i>
+            Usuarios del Workspace
+        </h2>
+        <a href="{% url 'manage_workspace_users' tenant.id %}" 
+           class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+            Ver todos →
+        </a>
+    </div>
+    <div class="p-6">
+        {% if product_users %}
+        <div class="space-y-3">
+            {% for user in product_users|slice:":5" %}
+            <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                <div class="flex items-center">
+                    {% if user.is_super_admin %}
+                    <i class="fas fa-crown text-yellow-500 mr-3"></i>
+                    {% else %}
+                    <i class="fas fa-user text-gray-400 mr-3"></i>
+                    {% endif %}
+                    <div>
+                        <p class="font-medium text-gray-900">{{ user.username }}</p>
+                        <p class="text-sm text-gray-500">{{ user.email|default:"Sin email" }}</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                        {{ user.login_type }}
+                    </span>
+                    <span class="px-2 py-1 text-xs rounded-full 
+                        {% if user.is_active %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                        {% if user.is_active %}Activo{% else %}Inactivo{% endif %}
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-500 text-center py-4">
+            No hay usuarios creados.
+            <a href="{% url 'manage_workspace_users' tenant.id %}" class="text-indigo-600 hover:text-indigo-800">
+                Crear primer usuario
+            </a>
+        </p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Actividad Reciente -->
+<div class="bg-white rounded-lg shadow">
+    <div class="px-6 py-4 border-b">
+        <h2 class="text-xl font-semibold text-gray-900">
+            <i class="fas fa-history text-indigo-600 mr-2"></i>
+            Actividad Reciente
+        </h2>
+    </div>
+    <div class="p-6">
+        {% if activity %}
+        <div class="space-y-4">
+            {% for log in activity %}
+            <div class="flex items-start space-x-3 py-3 border-b border-gray-100">
+                <div class="flex-shrink-0 mt-1">
+                    <i class="fas fa-circle text-xs 
+                        {% if log.action == 'create' %}text-green-500
+                        {% elif log.action == 'delete' %}text-red-500
+                        {% elif log.action == 'suspend' %}text-yellow-500
+                        {% else %}text-blue-500{% endif %}"></i>
+                </div>
+                <div class="flex-1">
+                    <p class="text-sm text-gray-900">{{ log.description }}</p>
+                    <p class="text-xs text-gray-500 mt-1">
+                        {% if log.user %}por {{ log.user.username }}{% endif %} • 
+                        {{ log.created_at|timesince }} ago
+                    </p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-500 text-center py-4">No hay actividad registrada</p>
+        {% endif %}
+    </div>
+</div>
+
 {% endblock %}

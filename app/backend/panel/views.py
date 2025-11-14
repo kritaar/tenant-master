@@ -1,6 +1,6 @@
 """
 Views del Panel de Administración Tenant Master
-Versión funcional SIN modelo Deployment
+Con gestión de usuarios por producto
 """
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -9,9 +9,11 @@ from django.contrib.auth import logout
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from django.conf import settings
-from django.db.models import Count, Q
+from django.db.models import Count
+from django.db import connection
 from .models import Tenant, Product, TenantUser, ActivityLog
 from django.contrib.auth.models import User
+from django.contrib.auth.hashers import make_password
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 import secrets
@@ -51,7 +53,6 @@ def dashboard(request):
         total_tenants = Tenant.objects.count()
         active_tenants = Tenant.objects.filter(status='active').count()
         
-        # Contar por tipo
         dedicated_count = Tenant.objects.filter(type='dedicated').count()
         shared_count = Tenant.objects.filter(type='shared').count()
         
@@ -96,15 +97,14 @@ def create_workspace(request):
     """Crea un nuevo workspace"""
     if request.method == 'POST':
         try:
-            # 1. Recoger datos del formulario
             company_name = request.POST.get('company_name')
             subdomain = request.POST.get('subdomain').lower()
             product_id = request.POST.get('product')
             plan = request.POST.get('plan', 'free')
-            workspace_type = request.POST.get('type', 'dedicated')
+            workspace_type = request.POST.get('type', 'shared')
             owner_username = request.POST.get('owner_username')
+            create_github_repo = request.POST.get('create_github_repo') == 'on'
             
-            # 2. Validaciones
             if Tenant.objects.filter(subdomain=subdomain).exists():
                 messages.error(request, f'El subdominio {subdomain} ya existe')
                 return redirect('create_workspace')
@@ -112,23 +112,19 @@ def create_workspace(request):
             product = Product.objects.get(id=product_id)
             owner = User.objects.get(username=owner_username)
             
-            # 3. Generar credenciales de BD
             db_name = f"tenant_{subdomain}"
             db_user = f"user_{subdomain}"
             db_password = generate_password()
             
-            # 4. Crear base de datos
             create_database(db_name, db_user, db_password)
             
-            # 5. Definir paths según el tipo
             if workspace_type == 'dedicated':
-                project_path = f"/var/deployments/{product.name.lower()}-{subdomain}"
-                stack_path = f"/var/deployments/{product.name.lower()}-{subdomain}/docker-compose.yml"
-            else:  # shared
-                project_path = product.template_path or f"/opt/proyectos/{product.name.lower()}"
+                project_path = f"/opt/proyectos/{product.name}-system-clients/{subdomain}"
+                stack_path = f"{project_path}/docker-compose.yml"
+            else:
+                project_path = product.template_path or f"/opt/proyectos/{product.name}-system"
                 stack_path = ""
             
-            # 6. Crear tenant
             tenant = Tenant.objects.create(
                 name=company_name,
                 subdomain=subdomain,
@@ -142,11 +138,14 @@ def create_workspace(request):
                 db_password=db_password,
                 project_path=project_path,
                 stack_path=stack_path,
+                git_repo_url='' if not create_github_repo else f'https://github.com/kritaar/{product.name}-{subdomain}',
                 owner=owner,
                 is_deployed=False
             )
             
-            # 7. Log de actividad
+            # Crear usuario admin en la tabla master del producto
+            ensure_super_admin_in_product(product.name, request.user)
+            
             ActivityLog.objects.create(
                 tenant=tenant,
                 user=request.user,
@@ -162,7 +161,6 @@ def create_workspace(request):
             messages.error(request, f'Error al crear workspace: {str(e)}')
             return redirect('create_workspace')
     
-    # GET request
     products = Product.objects.filter(is_active=True)
     users = User.objects.filter(is_active=True)
     
@@ -181,20 +179,17 @@ def edit_workspace(request, tenant_id):
         tenant = get_object_or_404(Tenant, id=tenant_id)
         
         if request.method == 'POST':
-            # Actualizar campos editables
             tenant.company_name = request.POST.get('company_name')
             tenant.plan = request.POST.get('plan')
             tenant.max_users = int(request.POST.get('max_users', 5))
             tenant.storage_limit_gb = int(request.POST.get('storage_limit_gb', 10))
             
-            # Actualizar owner si cambió
             new_owner_id = request.POST.get('owner_id')
             if new_owner_id:
                 tenant.owner = User.objects.get(id=new_owner_id)
             
             tenant.save()
             
-            # Log
             ActivityLog.objects.create(
                 tenant=tenant,
                 user=request.user,
@@ -206,7 +201,6 @@ def edit_workspace(request, tenant_id):
             messages.success(request, f'Workspace {tenant.company_name} actualizado exitosamente')
             return redirect('workspace_detail', tenant_id=tenant.id)
         
-        # GET request
         users = User.objects.filter(is_active=True)
         
         context = {
@@ -229,15 +223,61 @@ def workspace_detail(request, tenant_id):
         tenant_users = TenantUser.objects.filter(tenant=tenant).select_related('user')
         activity = ActivityLog.objects.filter(tenant=tenant).order_by('-created_at')[:20]
         
+        # Obtener usuarios del producto
+        product_users = get_product_users(tenant.product.name, tenant.id)
+        
         context = {
             'tenant': tenant,
             'tenant_users': tenant_users,
             'activity': activity,
+            'product_users': product_users,
         }
         return render(request, 'panel/workspace_detail.html', context)
     except Exception as e:
         messages.error(request, f'Error al cargar workspace: {str(e)}')
         return redirect('workspaces')
+
+
+@login_required
+@user_passes_test(is_superuser)
+def manage_workspace_users(request, tenant_id):
+    """Gestionar usuarios de un workspace"""
+    try:
+        tenant = get_object_or_404(Tenant, id=tenant_id)
+        product_name = tenant.product.name
+        
+        if request.method == 'POST':
+            action = request.POST.get('action')
+            
+            if action == 'create':
+                username = request.POST.get('username')
+                password = request.POST.get('password')
+                email = request.POST.get('email', '')
+                phone = request.POST.get('phone', '')
+                login_type = request.POST.get('login_type', 'username')
+                
+                create_product_user(product_name, tenant.id, username, password, email, phone, login_type)
+                messages.success(request, f'Usuario {username} creado exitosamente')
+                
+            elif action == 'delete':
+                user_id = request.POST.get('user_id')
+                delete_product_user(product_name, user_id)
+                messages.success(request, 'Usuario eliminado')
+            
+            return redirect('manage_workspace_users', tenant_id=tenant_id)
+        
+        # GET - Listar usuarios
+        users = get_product_users(product_name, tenant.id)
+        
+        context = {
+            'tenant': tenant,
+            'users': users,
+        }
+        return render(request, 'panel/manage_users.html', context)
+        
+    except Exception as e:
+        messages.error(request, f'Error: {str(e)}')
+        return redirect('workspace_detail', tenant_id=tenant_id)
 
 
 @login_required
@@ -301,9 +341,8 @@ def clients(request):
 @login_required
 @user_passes_test(is_superuser)
 def deployments(request):
-    """Lista de deployments (por ahora muestra tenants agrupados)"""
+    """Lista de deployments"""
     try:
-        # Agrupar tenants por tipo
         dedicated_tenants = Tenant.objects.filter(type='dedicated').select_related('product', 'owner')
         shared_products = Product.objects.filter(is_active=True)
         
@@ -393,7 +432,78 @@ def settings_view(request):
 
 
 # ============================================
-# FUNCIONES AUXILIARES
+# FUNCIONES AUXILIARES - USUARIOS DE PRODUCTOS
+# ============================================
+
+def get_product_users(product_name, tenant_id=None):
+    """Obtiene usuarios de la tabla {product}_users_master"""
+    try:
+        with connection.cursor() as cursor:
+            if tenant_id:
+                cursor.execute(f"""
+                    SELECT id, username, email, phone, login_type, is_super_admin, is_active, created_at
+                    FROM {product_name}_users_master
+                    WHERE tenant_id = %s OR is_super_admin = TRUE
+                    ORDER BY is_super_admin DESC, created_at DESC
+                """, [tenant_id])
+            else:
+                cursor.execute(f"""
+                    SELECT id, username, email, phone, login_type, is_super_admin, is_active, created_at
+                    FROM {product_name}_users_master
+                    ORDER BY is_super_admin DESC, created_at DESC
+                """)
+            
+            columns = [col[0] for col in cursor.description]
+            return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    except Exception as e:
+        print(f"Error getting product users: {e}")
+        return []
+
+
+def create_product_user(product_name, tenant_id, username, password, email='', phone='', login_type='username'):
+    """Crea un usuario en la tabla {product}_users_master"""
+    hashed_password = make_password(password)
+    
+    with connection.cursor() as cursor:
+        cursor.execute(f"""
+            INSERT INTO {product_name}_users_master 
+            (tenant_id, username, password, email, phone, login_type, is_super_admin, is_active, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, FALSE, TRUE, NOW())
+        """, [tenant_id, username, hashed_password, email, phone, login_type])
+
+
+def delete_product_user(product_name, user_id):
+    """Elimina un usuario de la tabla {product}_users_master"""
+    with connection.cursor() as cursor:
+        cursor.execute(f"""
+            DELETE FROM {product_name}_users_master WHERE id = %s AND is_super_admin = FALSE
+        """, [user_id])
+
+
+def ensure_super_admin_in_product(product_name, admin_user):
+    """Asegura que el super admin exista en la tabla del producto"""
+    try:
+        with connection.cursor() as cursor:
+            # Verificar si ya existe
+            cursor.execute(f"""
+                SELECT id FROM {product_name}_users_master 
+                WHERE username = %s AND is_super_admin = TRUE
+            """, [admin_user.username])
+            
+            if not cursor.fetchone():
+                # Crear super admin
+                hashed_password = make_password('admin123')  # Contraseña default
+                cursor.execute(f"""
+                    INSERT INTO {product_name}_users_master 
+                    (tenant_id, username, password, email, phone, login_type, is_super_admin, is_active, created_at)
+                    VALUES (NULL, %s, %s, %s, '', 'username', TRUE, TRUE, NOW())
+                """, [admin_user.username, hashed_password, admin_user.email])
+    except Exception as e:
+        print(f"Error ensuring super admin: {e}")
+
+
+# ============================================
+# FUNCIONES AUXILIARES - BASE DE DATOS
 # ============================================
 
 def create_database(db_name, db_user, db_password):
@@ -410,17 +520,14 @@ def create_database(db_name, db_user, db_password):
         cursor = conn.cursor()
         
         try:
-            # Crear usuario
             cursor.execute(f"SELECT 1 FROM pg_roles WHERE rolname = '{db_user}'")
             if not cursor.fetchone():
                 cursor.execute(f"CREATE USER {db_user} WITH PASSWORD '{db_password}'")
             
-            # Crear database
             cursor.execute(f"SELECT 1 FROM pg_database WHERE datname = '{db_name}'")
             if not cursor.fetchone():
                 cursor.execute(f"CREATE DATABASE {db_name} OWNER {db_user}")
             
-            # Otorgar permisos
             cursor.execute(f"GRANT ALL PRIVILEGES ON DATABASE {db_name} TO {db_user}")
             
         finally:
