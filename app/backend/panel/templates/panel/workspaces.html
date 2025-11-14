@@ -153,8 +153,12 @@
                                 <i class="fas fa-play"></i>
                             </button>
                             {% endif %}
-                            <button onclick="confirmAction({{ tenant.id }}, 'delete', '{{ tenant.company_name }}')" 
-                                    class="text-red-600 hover:text-red-900" title="Eliminar">
+                            <button onclick="confirmAction({{ tenant.id }}, 'mark_inactive', '{{ tenant.company_name }}')" 
+                                    class="text-orange-600 hover:text-orange-900" title="Marcar como inactivo">
+                                <i class="fas fa-ban"></i>
+                            </button>
+                            <button onclick="confirmAction({{ tenant.id }}, 'delete_permanent', '{{ tenant.company_name }}')" 
+                                    class="text-red-600 hover:text-red-900" title="Eliminar permanentemente">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -255,10 +259,16 @@ function confirmAction(tenantId, action, companyName) {
             message.textContent = `¿Estás seguro de activar "${companyName}"?`;
             button.className = 'flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg';
             break;
-        case 'delete':
-            title.textContent = '¿Eliminar workspace?';
-            message.textContent = `¿Estás seguro de eliminar "${companyName}"? Esta acción no se puede deshacer.`;
+        case 'mark_inactive':
+            title.textContent = '¿Marcar como inactivo?';
+            message.textContent = `¿Estás seguro de marcar "${companyName}" como inactivo? Se puede reactivar después.`;
+            button.className = 'flex-1 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg';
+            break;
+        case 'delete_permanent':
+            title.textContent = '⚠️ ¿Eliminar PERMANENTEMENTE?';
+            message.textContent = `¿Estás seguro de eliminar "${companyName}" PERMANENTEMENTE? Se borrará: base de datos, archivos, usuarios, repo GitHub. ESTA ACCIÓN NO SE PUEDE DESHACER.`;
             button.className = 'flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg';
+            button.textContent = 'SÍ, ELIMINAR TODO';
             break;
     }
     

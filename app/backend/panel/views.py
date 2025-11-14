@@ -20,6 +20,8 @@ import secrets
 import string
 import subprocess
 import json
+import shutil
+import os
 
 
 def is_superuser(user):
@@ -324,10 +326,43 @@ def workspace_action(request, tenant_id):
                 tenant.save()
                 messages.success(request, f'Workspace {tenant.company_name} activado')
                 
-            elif action == 'delete':
+            elif action == 'mark_inactive':
                 tenant.status = 'inactive'
                 tenant.save()
-                messages.success(request, f'Workspace {tenant.company_name} eliminado')
+                messages.success(request, f'Workspace {tenant.company_name} marcado como inactivo')
+                
+            elif action == 'delete_permanent':
+                # Eliminar PERMANENTEMENTE
+                company_name = tenant.company_name
+                db_name = tenant.db_name
+                db_user = tenant.db_user
+                project_path = tenant.project_path
+                
+                # 1. Eliminar usuarios del producto
+                try:
+                    delete_all_product_users(tenant.product.name, tenant.id)
+                except Exception as e:
+                    print(f"Error eliminando usuarios: {e}")
+                
+                # 2. Eliminar base de datos
+                try:
+                    delete_database(db_name, db_user)
+                except Exception as e:
+                    print(f"Error eliminando BD: {e}")
+                
+                # 3. Eliminar archivos del proyecto (solo dedicados)
+                if tenant.type == 'dedicated' and project_path:
+                    try:
+                        if os.path.exists(project_path):
+                            shutil.rmtree(project_path)
+                    except Exception as e:
+                        print(f"Error eliminando archivos: {e}")
+                
+                # 4. Eliminar el tenant de la BD
+                tenant.delete()
+                
+                messages.success(request, f'Workspace {company_name} eliminado permanentemente')
+                return redirect('workspaces')
                 
             ActivityLog.objects.create(
                 tenant=tenant,
@@ -505,6 +540,15 @@ def delete_product_user(product_name, user_id):
         """, [user_id])
 
 
+def delete_all_product_users(product_name, tenant_id):
+    """Elimina TODOS los usuarios de un tenant de la tabla master"""
+    with connection.cursor() as cursor:
+        cursor.execute(f"""
+            DELETE FROM {product_name}_users_master 
+            WHERE tenant_id = %s AND is_super_admin = FALSE
+        """, [tenant_id])
+
+
 def ensure_super_admin_in_product(product_name, admin_user):
     """Asegura que el super admin exista en la tabla del producto"""
     try:
@@ -560,6 +604,41 @@ def create_database(db_name, db_user, db_password):
             conn.close()
     except Exception as e:
         raise Exception(f"Error al crear base de datos: {str(e)}")
+
+
+def delete_database(db_name, db_user):
+    """Elimina una base de datos y usuario del tenant"""
+    try:
+        conn = psycopg2.connect(
+            host=settings.DATABASES['default']['HOST'],
+            port=settings.DATABASES['default']['PORT'],
+            user=settings.DATABASES['default']['USER'],
+            password=settings.DATABASES['default']['PASSWORD'],
+            database='postgres'
+        )
+        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+        cursor = conn.cursor()
+        
+        try:
+            # Terminar conexiones activas a la BD
+            cursor.execute(f"""
+                SELECT pg_terminate_backend(pg_stat_activity.pid)
+                FROM pg_stat_activity
+                WHERE pg_stat_activity.datname = '{db_name}'
+                AND pid <> pg_backend_pid()
+            """)
+            
+            # Eliminar BD
+            cursor.execute(f"DROP DATABASE IF EXISTS {db_name}")
+            
+            # Eliminar usuario
+            cursor.execute(f"DROP USER IF EXISTS {db_user}")
+            
+        finally:
+            cursor.close()
+            conn.close()
+    except Exception as e:
+        raise Exception(f"Error al eliminar base de datos: {str(e)}")
 
 
 def get_client_ip(request):
