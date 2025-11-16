@@ -1,0 +1,8 @@
+# Este archivo debe ir en el SERVIDOR, no en GitHub
+version: '3.8'
+
+services:
+  panel:
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_USERNAME=${GITHUB_USERNAME}

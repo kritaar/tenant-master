@@ -46,6 +46,13 @@ class ProductRepoInitializer:
     def create_project_folder(self):
         """Crea carpeta del proyecto"""
         self.log(f"Creando carpeta {self.project_path}")
+        
+        # Si ya existe, eliminarla para empezar limpio
+        if os.path.exists(self.project_path):
+            self.log(f"Carpeta ya existe, eliminando...")
+            import shutil
+            shutil.rmtree(self.project_path)
+        
         os.makedirs(self.project_path, exist_ok=True)
         
         # Crear README.md básico
