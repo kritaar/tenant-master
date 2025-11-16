@@ -137,6 +137,21 @@ def create_workspace(request):
             
             product = Product.objects.get(id=product_id)
             
+            # Si el usuario fue creado, agregarlo a la tabla master del producto
+            if created:
+                try:
+                    create_product_user(
+                        product.name,
+                        None,  # tenant_id = None para owner
+                        owner_username,
+                        'admin123',
+                        owner.email,
+                        '',
+                        'username'
+                    )
+                except Exception as e:
+                    print(f"Error creando usuario en producto: {e}")
+            
             # Sanitizar subdomain para nombres de BD (reemplazar guiones por guiones bajos)
             safe_subdomain = subdomain.replace('-', '_')
             db_name = f"tenant_{safe_subdomain}"
