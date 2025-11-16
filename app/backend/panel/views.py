@@ -440,6 +440,9 @@ def create_workspace_repo(request, tenant_id):
                 ip_address=get_client_ip(request)
             )
             
+            # Recargar tenant desde la BD para mostrar el URL actualizado
+            tenant.refresh_from_db()
+            
         except Exception as e:
             messages.error(request, f'Error al crear repositorio: {str(e)}')
         
