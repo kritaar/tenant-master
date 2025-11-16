@@ -18,6 +18,7 @@ urlpatterns = [
     path('workspaces/<int:tenant_id>/edit/', views.edit_workspace, name='edit_workspace'),
     path('workspaces/<int:tenant_id>/action/', views.workspace_action, name='workspace_action'),
     path('workspaces/<int:tenant_id>/users/', views.manage_workspace_users, name='manage_workspace_users'),
+    path('workspaces/<int:tenant_id>/create-repo/', views.create_workspace_repo, name='create_workspace_repo'),
     
     # Otros módulos
     path('clients/', views.clients, name='clients'),

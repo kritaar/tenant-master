@@ -371,6 +371,74 @@ def manage_workspace_users(request, tenant_id):
 
 @login_required
 @user_passes_test(is_superuser)
+def create_workspace_repo(request, tenant_id):
+    """Crea un repositorio GitHub para un workspace existente"""
+    if request.method == 'POST':
+        try:
+            tenant = get_object_or_404(Tenant, id=tenant_id)
+            
+            # Verificar si ya tiene repo
+            if tenant.git_repo_url:
+                messages.warning(request, f'Este workspace ya tiene un repositorio: {tenant.git_repo_url}')
+                return redirect('workspace_detail', tenant_id=tenant.id)
+            
+            # Crear repositorio según el tipo
+            if tenant.type == 'shared':
+                # Para SHARED, inicializar repo base del producto
+                result = initialize_product_repo(tenant.product.name)
+                
+                if result.get('success'):
+                    # Actualizar producto
+                    tenant.product.github_repo_url = result.get('repo_url', '')
+                    tenant.product.template_path = result.get('path', '')
+                    tenant.product.save()
+                    
+                    # Actualizar tenant
+                    tenant.git_repo_url = result.get('repo_url', '')
+                    tenant.save()
+                    
+                    messages.success(request, f'Repositorio creado exitosamente: {tenant.git_repo_url}')
+                else:
+                    messages.error(request, f'Error al crear repositorio: {result.get("error")}')
+                    
+            elif tenant.type == 'dedicated':
+                # Para DEDICATED, hacer deployment completo
+                result = deploy_dedicated_workspace(
+                    tenant.product.name,
+                    tenant.subdomain,
+                    tenant.db_name,
+                    tenant.db_user,
+                    tenant.db_password
+                )
+                
+                if result.get('success'):
+                    tenant.git_repo_url = result.get('repo_url', '')
+                    tenant.is_deployed = True
+                    tenant.save()
+                    
+                    messages.success(request, f'Repositorio y deployment creados exitosamente')
+                else:
+                    messages.error(request, f'Error al crear repositorio: {result.get("error")}')
+            
+            # Log de actividad
+            ActivityLog.objects.create(
+                tenant=tenant,
+                user=request.user,
+                action='create',
+                description=f'Repositorio GitHub creado para {tenant.company_name}',
+                ip_address=get_client_ip(request)
+            )
+            
+        except Exception as e:
+            messages.error(request, f'Error al crear repositorio: {str(e)}')
+        
+        return redirect('workspace_detail', tenant_id=tenant_id)
+    
+    return redirect('workspaces')
+
+
+@login_required
+@user_passes_test(is_superuser)
 def workspace_action(request, tenant_id):
     """Acciones sobre un workspace"""
     if request.method == 'POST':
