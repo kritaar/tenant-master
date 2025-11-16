@@ -109,12 +109,33 @@ def create_workspace(request):
             owner_username = request.POST.get('owner_username')
             create_github_repo = request.POST.get('create_github_repo') == 'on'
             
+            # Auto-crear usuario predeterminado si no se especifica
+            if not owner_username or owner_username == 'auto':
+                owner_username = f"{subdomain}_admin"
+            
+            # Crear o obtener usuario owner
+            owner, created = User.objects.get_or_create(
+                username=owner_username,
+                defaults={
+                    'email': f'{owner_username}@{subdomain}.surgir.online',
+                    'first_name': company_name,
+                    'last_name': '(Predeterminado)',
+                    'is_active': True,
+                    'is_staff': False,
+                    'is_superuser': False,
+                }
+            )
+            
+            if created:
+                owner.set_password('admin123')  # Password predeterminado
+                owner.save()
+                messages.info(request, f'Usuario predeterminado creado: {owner_username} (password: admin123)')
+            
             if Tenant.objects.filter(subdomain=subdomain).exists():
                 messages.error(request, f'El subdominio {subdomain} ya existe')
                 return redirect('create_workspace')
             
             product = Product.objects.get(id=product_id)
-            owner = User.objects.get(username=owner_username)
             
             # Sanitizar subdomain para nombres de BD (reemplazar guiones por guiones bajos)
             safe_subdomain = subdomain.replace('-', '_')

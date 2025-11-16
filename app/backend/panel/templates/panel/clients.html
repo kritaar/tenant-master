@@ -20,11 +20,29 @@
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
             {% for user in users %}
-            <tr>
-                <td class="px-6 py-4 whitespace-nowrap">{{ user.username }}</td>
-                <td class="px-6 py-4 whitespace-nowrap">{{ user.email }}</td>
-                <td class="px-6 py-4 whitespace-nowrap">{{ user.tenant_count }}</td>
-                <td class="px-6 py-4 whitespace-nowrap">{{ user.date_joined|date:"d/m/Y" }}</td>
+            <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                        <span class="font-medium text-gray-900">{{ user.username }}</span>
+                        {% if user.last_name == '(Predeterminado)' %}
+                        <span class="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                            🤖 Predeterminado
+                        </span>
+                        {% endif %}
+                        {% if user.is_superuser %}
+                        <span class="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">
+                            👑 Admin
+                        </span>
+                        {% endif %}
+                    </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ user.email|default:"-" }}</td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="px-3 py-1 bg-indigo-100 text-indigo-800 text-sm rounded-full">
+                        {{ user.tenant_count }} workspace{{ user.tenant_count|pluralize }}
+                    </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ user.date_joined|date:"d/m/Y H:i" }}</td>
             </tr>
             {% empty %}
             <tr>
