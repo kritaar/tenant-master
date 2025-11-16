@@ -400,7 +400,11 @@ def create_workspace_repo(request, tenant_id):
                     tenant.git_repo_url = result.get('repo_url', '')
                     tenant.save()
                     
-                    messages.success(request, f'Repositorio creado exitosamente: {tenant.git_repo_url}')
+                    repo_url = result.get('repo_url', '')
+                    if repo_url:
+                        messages.success(request, f'Repositorio creado: {repo_url}')
+                    else:
+                        messages.success(request, 'Repositorio creado exitosamente')
                 else:
                     messages.error(request, f'Error al crear repositorio: {result.get("error")}')
                     
@@ -419,7 +423,11 @@ def create_workspace_repo(request, tenant_id):
                     tenant.is_deployed = True
                     tenant.save()
                     
-                    messages.success(request, f'Repositorio y deployment creados exitosamente')
+                    repo_url = result.get('repo_url', '')
+                    if repo_url:
+                        messages.success(request, f'Repositorio y deployment creados: {repo_url}')
+                    else:
+                        messages.success(request, 'Repositorio y deployment creados exitosamente')
                 else:
                     messages.error(request, f'Error al crear repositorio: {result.get("error")}')
             
