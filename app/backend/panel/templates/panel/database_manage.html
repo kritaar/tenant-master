@@ -43,6 +43,10 @@
                 class="tab-button border-b-2 border-indigo-500 py-4 px-1 text-indigo-600 font-medium">
             📊 Tablas
         </button>
+        <button onclick="showTab('users')" id="tab-users"
+                class="tab-button border-b-2 border-transparent py-4 px-1 text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium">
+            👥 Usuarios
+        </button>
         <button onclick="showTab('sql')" id="tab-sql"
                 class="tab-button border-b-2 border-transparent py-4 px-1 text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium">
             💻 Ejecutar SQL
@@ -92,6 +96,38 @@
                 <p class="text-sm text-gray-400 mt-2">Las tablas se crearán cuando el sistema se implemente</p>
             </div>
             {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Tab: Usuarios -->
+<div id="content-users" class="tab-content hidden">
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 class="text-xl font-semibold text-gray-900">
+                👥 Usuarios de {{ db_info.name }}
+            </h2>
+            <button onclick="showCreateUserModal()" 
+                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow">
+                <i class="fas fa-plus mr-2"></i>Crear Usuario
+            </button>
+        </div>
+        <div class="p-6">
+            <div class="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p class="text-sm text-blue-800">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    <strong>Tabla de usuarios:</strong> 
+                    <code class="bg-white px-2 py-1 rounded">{{ db_info.product_name }}_users_master</code>
+                </p>
+            </div>
+            
+            <div id="users-list">
+                <!-- Se carga dinámicamente -->
+                <div class="text-center py-8">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+                    <p class="text-gray-500 mt-4">Cargando usuarios...</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -228,6 +264,9 @@
 </div>
 
 <script>
+const dbName = '{{ db_info.name }}';
+const productName = '{{ db_info.product_name }}';
+
 function showTab(tabName) {
     // Ocultar todos los tabs
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -240,6 +279,168 @@ function showTab(tabName) {
     document.getElementById('content-' + tabName).classList.remove('hidden');
     document.getElementById('tab-' + tabName).classList.remove('border-transparent', 'text-gray-500');
     document.getElementById('tab-' + tabName).classList.add('border-indigo-500', 'text-indigo-600');
+    
+    // Cargar usuarios si es el tab de usuarios
+    if (tabName === 'users') {
+        loadUsers();
+    }
+}
+
+function loadUsers() {
+    fetch(`/databases/${dbName}/users/`)
+        .then(r => r.json())
+        .then(data => {
+            const container = document.getElementById('users-list');
+            if (data.users && data.users.length > 0) {
+                container.innerHTML = renderUsersTable(data.users);
+            } else {
+                container.innerHTML = '<p class="text-center text-gray-500 py-8">No hay usuarios en este workspace</p>';
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            document.getElementById('users-list').innerHTML = '<p class="text-center text-red-500 py-8">Error al cargar usuarios</p>';
+        });
+}
+
+function renderUsersTable(users) {
+    return `
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 border">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">ID</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Username</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Email</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Teléfono</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Tipo</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Estado</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    ${users.map(user => `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 text-sm">${user.id}</td>
+                            <td class="px-4 py-3">
+                                <div class="flex items-center">
+                                    <span class="font-medium">${user.username}</span>
+                                    ${user.is_super_admin ? '<span class="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">👑 Admin</span>' : ''}
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-600">${user.email || '-'}</td>
+                            <td class="px-4 py-3 text-sm text-gray-600">${user.phone || '-'}</td>
+                            <td class="px-4 py-3 text-sm">${user.login_type}</td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-1 text-xs rounded-full ${
+                                    user.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                }">
+                                    ${user.is_active ? 'Activo' : 'Inactivo'}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3">
+                                ${!user.is_super_admin ? `
+                                    <button onclick="editUser(${user.id})" class="text-indigo-600 hover:text-indigo-800 mr-2" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="changePassword(${user.id}, '${user.username}')" class="text-blue-600 hover:text-blue-800 mr-2" title="Cambiar contraseña">
+                                        <i class="fas fa-key"></i>
+                                    </button>
+                                    <button onclick="deleteUser(${user.id}, '${user.username}')" class="text-red-600 hover:text-red-800" title="Eliminar">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                ` : '<span class="text-gray-400 text-sm">Protegido</span>'}
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function showCreateUserModal() {
+    const username = prompt('👤 Username:');
+    if (!username) return;
+    
+    const password = prompt('🔑 Password:');
+    if (!password) return;
+    
+    const email = prompt('📧 Email (opcional):') || '';
+    
+    fetch(`/databases/${dbName}/users/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ username, password, email })
+    })
+    .then(r => r.json())
+    .then(data => {
+        alert(data.message);
+        loadUsers();
+    })
+    .catch(err => alert('Error: ' + err));
+}
+
+function editUser(userId) {
+    const email = prompt('📧 Nuevo email:');
+    if (email === null) return;
+    
+    fetch(`/databases/${dbName}/users/`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ id: userId, email })
+    })
+    .then(r => r.json())
+    .then(data => {
+        alert(data.message);
+        loadUsers();
+    })
+    .catch(err => alert('Error: ' + err));
+}
+
+function changePassword(userId, username) {
+    const password = prompt(`🔑 Nueva contraseña para ${username}:`);
+    if (!password) return;
+    
+    fetch(`/databases/${dbName}/users/`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ id: userId, password })
+    })
+    .then(r => r.json())
+    .then(data => {
+        alert(data.message);
+        loadUsers();
+    })
+    .catch(err => alert('Error: ' + err));
+}
+
+function deleteUser(userId, username) {
+    if (!confirm(`¿Eliminar usuario ${username}?`)) return;
+    
+    fetch(`/databases/${dbName}/users/`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ id: userId })
+    })
+    .then(r => r.json())
+    .then(data => {
+        alert(data.message);
+        loadUsers();
+    })
+    .catch(err => alert('Error: ' + err));
 }
 
 function setQuery(query) {

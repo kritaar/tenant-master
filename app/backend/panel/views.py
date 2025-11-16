@@ -602,6 +602,7 @@ def database_manage(request, db_name):
                 'name': db_name,
                 'type': 'master',
                 'workspace': None,
+                'product_name': None,
             }
         else:
             tenant = Tenant.objects.filter(db_name=db_name).first()
@@ -613,6 +614,7 @@ def database_manage(request, db_name):
                 'name': db_name,
                 'type': tenant.type,
                 'workspace': tenant,
+                'product_name': tenant.product.name,
             }
         
         # Si es POST, ejecutar query
@@ -636,6 +638,100 @@ def database_manage(request, db_name):
     except Exception as e:
         messages.error(request, f'Error: {str(e)}')
         return redirect('databases')
+
+
+@login_required
+@user_passes_test(is_superuser)
+def database_users_api(request, db_name):
+    """API para gestionar usuarios de un producto"""
+    try:
+        # Obtener nombre del producto
+        if db_name == 'tenant_master':
+            return JsonResponse({'error': 'No hay tabla de usuarios en tenant_master'}, status=400)
+        
+        tenant = Tenant.objects.filter(db_name=db_name).first()
+        if not tenant:
+            return JsonResponse({'error': 'Base de datos no encontrada'}, status=404)
+        
+        product_name = tenant.product.name
+        table_name = f"{product_name}_users_master"
+        
+        # GET - Listar usuarios
+        if request.method == 'GET':
+            users = get_product_users(product_name, tenant.id)
+            return JsonResponse({'users': users})
+        
+        # POST - Crear usuario
+        elif request.method == 'POST':
+            import json
+            data = json.loads(request.body)
+            
+            username = data.get('username')
+            password = data.get('password')
+            email = data.get('email', '')
+            phone = data.get('phone', '')
+            login_type = data.get('login_type', 'username')
+            
+            create_product_user(product_name, tenant.id, username, password, email, phone, login_type)
+            return JsonResponse({'success': True, 'message': f'Usuario {username} creado'})
+        
+        # PUT - Actualizar usuario
+        elif request.method == 'PUT':
+            import json
+            data = json.loads(request.body)
+            user_id = data.get('id')
+            
+            conn = psycopg2.connect(
+                host=settings.DATABASES['default']['HOST'],
+                port=settings.DATABASES['default']['PORT'],
+                user=settings.DATABASES['default']['USER'],
+                password=settings.DATABASES['default']['PASSWORD'],
+                database='tenant_master'
+            )
+            cursor = conn.cursor()
+            
+            # Construir UPDATE
+            updates = []
+            params = []
+            
+            if 'email' in data:
+                updates.append('email = %s')
+                params.append(data['email'])
+            if 'phone' in data:
+                updates.append('phone = %s')
+                params.append(data['phone'])
+            if 'is_active' in data:
+                updates.append('is_active = %s')
+                params.append(data['is_active'])
+            if 'password' in data and data['password']:
+                updates.append('password = %s')
+                params.append(make_password(data['password']))
+            
+            params.append(user_id)
+            
+            cursor.execute(f"""
+                UPDATE {table_name}
+                SET {', '.join(updates)}
+                WHERE id = %s AND is_super_admin = FALSE
+            """, params)
+            
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            return JsonResponse({'success': True, 'message': 'Usuario actualizado'})
+        
+        # DELETE - Eliminar usuario
+        elif request.method == 'DELETE':
+            import json
+            data = json.loads(request.body)
+            user_id = data.get('id')
+            
+            delete_product_user(product_name, user_id)
+            return JsonResponse({'success': True, 'message': 'Usuario eliminado'})
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 @login_required
