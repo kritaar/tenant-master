@@ -188,10 +188,10 @@ def create_workspace(request):
             # Crear usuario admin en la tabla master del producto
             ensure_super_admin_in_product(product.name, request.user)
             
-            # Si es SHARED, verificar/inicializar repositorio base del producto
-            if workspace_type == 'shared':
+            # Si es SHARED y el checkbox está marcado, inicializar repo
+            if workspace_type == 'shared' and create_github_repo:
                 try:
-                    # Verificar si ya existe el repo
+                    # Verificar si ya existe el repo del producto
                     if not product.github_repo_url:
                         # Inicializar repo base del producto
                         repo_result = initialize_product_repo(product.name)
@@ -207,15 +207,18 @@ def create_workspace(request):
                             tenant.save()
                             
                             messages.success(request, f'Repositorio base inicializado: {product.github_repo_url}')
+                        else:
+                            messages.warning(request, f'No se pudo inicializar repositorio: {repo_result.get("error")}')
                     else:
                         # Repo ya existe, solo asignar
                         tenant.git_repo_url = product.github_repo_url
                         tenant.save()
+                        messages.info(request, f'Repositorio base ya existe: {product.github_repo_url}')
                 except Exception as e:
                     messages.warning(request, f'No se pudo inicializar repositorio: {str(e)}')
             
-            # Si es dedicado, ejecutar deployment automático
-            if workspace_type == 'dedicated':
+            # Si es dedicado y el checkbox está marcado, ejecutar deployment automático
+            if workspace_type == 'dedicated' and create_github_repo:
                 try:
                     deploy_result = deploy_dedicated_workspace(
                         product.name,

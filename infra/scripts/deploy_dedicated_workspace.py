@@ -81,6 +81,13 @@ class WorkspaceDeployer:
         """Inicializa repositorio Git"""
         self.log("Inicializando Git...")
         
+        # Configurar Git globalmente si no está configurado
+        try:
+            self.run_command("git config --global user.email 'deploy@surgir.online'")
+            self.run_command("git config --global user.name 'Tenant Master'")
+        except:
+            pass
+        
         self.run_command("git init", cwd=self.dest_path)
         self.run_command("git config user.name 'Tenant Master'", cwd=self.dest_path)
         self.run_command("git config user.email 'deploy@surgir.online'", cwd=self.dest_path)
@@ -111,7 +118,19 @@ node_modules/
             f.write(gitignore_content)
         
         self.run_command("git add .", cwd=self.dest_path)
-        self.run_command('git commit -m "Initial commit - Deployment automático"', cwd=self.dest_path)
+        
+        # Intentar commit
+        try:
+            self.run_command('git commit -m "Initial commit - Deployment automático"', cwd=self.dest_path)
+            self.log("Git commit exitoso")
+        except subprocess.CalledProcessError:
+            # Si falla, crear archivo dummy
+            self.log("Sin cambios para commit, creando archivo dummy...")
+            dummy_file = os.path.join(self.dest_path, '.gitkeep')
+            with open(dummy_file, 'w') as f:
+                f.write('')
+            self.run_command("git add .", cwd=self.dest_path)
+            self.run_command('git commit -m "Initial commit - Deployment automático"', cwd=self.dest_path)
         
         self.log("Git inicializado")
     
