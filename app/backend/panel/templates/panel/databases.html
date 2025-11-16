@@ -4,34 +4,282 @@
 
 {% block content %}
 <div class="mb-8">
-    <h1 class="text-3xl font-bold text-gray-900">Bases de Datos</h1>
-    <p class="text-gray-600 mt-2">Información de conexión</p>
+    <h1 class="text-3xl font-bold text-gray-900">💾 Bases de Datos</h1>
+    <p class="text-gray-600 mt-2">Gestión jerárquica de bases de datos por producto y tipo</p>
 </div>
 
-<div class="bg-white rounded-lg shadow overflow-hidden">
-    <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
-            <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tenant</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Base de Datos</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Host</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Puerto</th>
-            </tr>
-        </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-            {% for db in db_info %}
-            <tr>
-                <td class="px-6 py-4 whitespace-nowrap">{{ db.tenant.company_name }}</td>
-                <td class="px-6 py-4 whitespace-nowrap font-mono">{{ db.db_name }}</td>
-                <td class="px-6 py-4 whitespace-nowrap">{{ db.db_host }}</td>
-                <td class="px-6 py-4 whitespace-nowrap">{{ db.db_port }}</td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="4" class="px-6 py-4 text-center text-gray-500">No hay bases de datos</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<!-- SISTEMA MAESTRO -->
+<div class="bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-300 rounded-lg shadow-md mb-6">
+    <details class="group">
+        <summary class="flex items-center justify-between p-6 cursor-pointer hover:bg-yellow-100 rounded-lg transition">
+            <div class="flex items-center space-x-4">
+                <span class="text-3xl">🏢</span>
+                <div>
+                    <h2 class="text-xl font-bold text-gray-900">SISTEMA MAESTRO</h2>
+                    <p class="text-sm text-gray-600 font-mono">{{ master_db.name }}</p>
+                </div>
+            </div>
+            <svg class="w-6 h-6 transform group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+        </summary>
+        
+        <div class="px-6 pb-6 space-y-3">
+            <div class="grid grid-cols-3 gap-4">
+                <div class="bg-white p-4 rounded-lg">
+                    <p class="text-sm text-gray-600">👥 Usuarios del Panel</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ master_db.users_count }}</p>
+                </div>
+                <div class="bg-white p-4 rounded-lg">
+                    <p class="text-sm text-gray-600">📦 Productos</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ master_db.products_count }}</p>
+                </div>
+                <div class="bg-white p-4 rounded-lg">
+                    <p class="text-sm text-gray-600">🏢 Workspaces</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ master_db.workspaces_count }}</p>
+                </div>
+            </div>
+            <div class="flex justify-end">
+                <a href="{% url 'database_manage' 'tenant_master' %}" 
+                   class="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-2 rounded-lg shadow">
+                    <i class="fas fa-cog mr-2"></i>Gestionar BD Master
+                </a>
+            </div>
+        </div>
+    </details>
 </div>
+
+<!-- PRODUCTOS -->
+{% for product in products %}
+<div class="bg-white border-2 border-gray-200 rounded-lg shadow-md mb-6">
+    <details class="group">
+        <summary class="flex items-center justify-between p-6 cursor-pointer hover:bg-gray-50 rounded-lg transition">
+            <div class="flex items-center space-x-4">
+                <span class="text-3xl">{{ product.icon }}</span>
+                <div>
+                    <h2 class="text-xl font-bold text-gray-900">{{ product.display_name|upper }}</h2>
+                    <p class="text-sm text-gray-600 font-mono">{{ product.name }}</p>
+                </div>
+                <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">
+                    {{ product.shared_count|add:product.dedicated_count }} workspace{{ product.shared_count|add:product.dedicated_count|pluralize }}
+                </span>
+            </div>
+            <svg class="w-6 h-6 transform group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+        </summary>
+        
+        <div class="px-6 pb-6 space-y-4">
+            <!-- Info del Producto -->
+            <div class="bg-gray-50 p-4 rounded-lg space-y-2">
+                {% if product.github_repo_url %}
+                <div class="flex items-center space-x-2">
+                    <i class="fab fa-github text-gray-600"></i>
+                    <span class="text-sm text-gray-600">Repo:</span>
+                    <a href="{{ product.github_repo_url }}" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-sm font-mono">
+                        {{ product.github_repo_url }}
+                    </a>
+                </div>
+                {% else %}
+                <div class="flex items-center space-x-2">
+                    <i class="fab fa-github text-gray-400"></i>
+                    <span class="text-sm text-gray-500">Repositorio no inicializado</span>
+                </div>
+                {% endif %}
+                
+                {% if product.template_path %}
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-folder text-gray-600"></i>
+                    <span class="text-sm text-gray-600">Path:</span>
+                    <code class="text-sm bg-white px-2 py-1 rounded">{{ product.template_path }}</code>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- COMPARTIDO -->
+            <div class="border-2 border-blue-200 bg-blue-50 rounded-lg">
+                <details class="group/shared">
+                    <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-blue-100 rounded-lg transition">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-2xl">🔵</span>
+                            <div>
+                                <h3 class="font-bold text-blue-900">COMPARTIDO</h3>
+                                <p class="text-sm text-blue-700">{{ product.shared_count }} workspace{{ product.shared_count|pluralize }}</p>
+                            </div>
+                        </div>
+                        <svg class="w-5 h-5 transform group-open/shared:rotate-180 transition-transform text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </summary>
+                    
+                    <div class="px-4 pb-4 space-y-3">
+                        {% if product.shared_tenants %}
+                            {% for tenant in product.shared_tenants %}
+                            <div class="bg-white border border-blue-200 rounded-lg">
+                                <details class="group/tenant">
+                                    <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 rounded-lg">
+                                        <div class="flex-1">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <p class="font-mono font-bold text-gray-900">{{ tenant.db_name }}</p>
+                                                    <p class="text-sm text-gray-600">
+                                                        <i class="fas fa-globe mr-1"></i>
+                                                        <a href="{{ tenant.url }}" target="_blank" class="hover:text-indigo-600">{{ tenant.subdomain }}.surgir.online</a>
+                                                    </p>
+                                                </div>
+                                                <span class="px-3 py-1 rounded-full text-xs font-medium
+                                                    {% if tenant.status == 'active' %}bg-green-100 text-green-800
+                                                    {% elif tenant.status == 'suspended' %}bg-yellow-100 text-yellow-800
+                                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                                    {{ tenant.status|upper }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <svg class="w-5 h-5 transform group-open/tenant:rotate-180 transition-transform ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </summary>
+                                    
+                                    <div class="px-4 pb-4 space-y-3 border-t border-gray-100">
+                                        <div class="grid grid-cols-3 gap-3 pt-3">
+                                            <div class="text-center">
+                                                <p class="text-xs text-gray-600">Owner</p>
+                                                <p class="font-bold text-gray-900">👤 {{ tenant.owner }}</p>
+                                            </div>
+                                            <div class="text-center">
+                                                <p class="text-xs text-gray-600">Usuarios</p>
+                                                <p class="font-bold text-gray-900">👥 {{ tenant.users_count }}</p>
+                                            </div>
+                                            <div class="text-center">
+                                                <p class="text-xs text-gray-600">Tablas</p>
+                                                <p class="font-bold text-gray-900">📊 {{ tenant.tables_count }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex justify-end space-x-2">
+                                            <a href="{% url 'workspace_detail' tenant.id %}" 
+                                               class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm">
+                                                <i class="fas fa-eye mr-1"></i>Ver Workspace
+                                            </a>
+                                            <a href="{% url 'database_manage' tenant.db_name %}" 
+                                               class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded text-sm">
+                                                <i class="fas fa-cog mr-1"></i>Gestionar BD
+                                            </a>
+                                        </div>
+                                    </div>
+                                </details>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                        <p class="text-center text-blue-600 py-4">Sin workspaces compartidos</p>
+                        {% endif %}
+                    </div>
+                </details>
+            </div>
+            
+            <!-- DEDICADO -->
+            <div class="border-2 border-purple-200 bg-purple-50 rounded-lg">
+                <details class="group/dedicated">
+                    <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-purple-100 rounded-lg transition">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-2xl">🟣</span>
+                            <div>
+                                <h3 class="font-bold text-purple-900">DEDICADO</h3>
+                                <p class="text-sm text-purple-700">{{ product.dedicated_count }} workspace{{ product.dedicated_count|pluralize }}</p>
+                            </div>
+                        </div>
+                        <svg class="w-5 h-5 transform group-open/dedicated:rotate-180 transition-transform text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </summary>
+                    
+                    <div class="px-4 pb-4 space-y-3">
+                        {% if product.dedicated_tenants %}
+                            {% for tenant in product.dedicated_tenants %}
+                            <div class="bg-white border border-purple-200 rounded-lg">
+                                <details class="group/tenant">
+                                    <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 rounded-lg">
+                                        <div class="flex-1">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <p class="font-mono font-bold text-gray-900">{{ tenant.db_name }}</p>
+                                                    <p class="text-sm text-gray-600">
+                                                        <i class="fas fa-globe mr-1"></i>
+                                                        <a href="{{ tenant.url }}" target="_blank" class="hover:text-indigo-600">{{ tenant.subdomain }}.surgir.online</a>
+                                                    </p>
+                                                </div>
+                                                <span class="px-3 py-1 rounded-full text-xs font-medium
+                                                    {% if tenant.status == 'active' %}bg-green-100 text-green-800
+                                                    {% elif tenant.status == 'suspended' %}bg-yellow-100 text-yellow-800
+                                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                                    {{ tenant.status|upper }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <svg class="w-5 h-5 transform group-open/tenant:rotate-180 transition-transform ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </summary>
+                                    
+                                    <div class="px-4 pb-4 space-y-3 border-t border-gray-100">
+                                        <div class="grid grid-cols-3 gap-3 pt-3">
+                                            <div class="text-center">
+                                                <p class="text-xs text-gray-600">Owner</p>
+                                                <p class="font-bold text-gray-900">👤 {{ tenant.owner }}</p>
+                                            </div>
+                                            <div class="text-center">
+                                                <p class="text-xs text-gray-600">Usuarios</p>
+                                                <p class="font-bold text-gray-900">👥 {{ tenant.users_count }}</p>
+                                            </div>
+                                            <div class="text-center">
+                                                <p class="text-xs text-gray-600">Tablas</p>
+                                                <p class="font-bold text-gray-900">📊 {{ tenant.tables_count }}</p>
+                                            </div>
+                                        </div>
+                                        {% if tenant.project_path %}
+                                        <div class="bg-gray-50 p-3 rounded">
+                                            <p class="text-xs text-gray-600 mb-1">
+                                                <i class="fas fa-folder mr-1"></i>Path del Proyecto:
+                                            </p>
+                                            <code class="text-xs bg-white px-2 py-1 rounded block">{{ tenant.project_path }}</code>
+                                        </div>
+                                        {% endif %}
+                                        {% if tenant.git_repo_url %}
+                                        <div class="bg-gray-50 p-3 rounded">
+                                            <p class="text-xs text-gray-600 mb-1">
+                                                <i class="fab fa-github mr-1"></i>Repositorio:
+                                            </p>
+                                            <a href="{{ tenant.git_repo_url }}" target="_blank" class="text-xs text-indigo-600 hover:text-indigo-800 font-mono">
+                                                {{ tenant.git_repo_url }}
+                                            </a>
+                                        </div>
+                                        {% endif %}
+                                        <div class="flex justify-end space-x-2">
+                                            <a href="{% url 'workspace_detail' tenant.id %}" 
+                                               class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm">
+                                                <i class="fas fa-eye mr-1"></i>Ver Workspace
+                                            </a>
+                                            <a href="{% url 'database_manage' tenant.db_name %}" 
+                                               class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded text-sm">
+                                                <i class="fas fa-cog mr-1"></i>Gestionar BD
+                                            </a>
+                                        </div>
+                                    </div>
+                                </details>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                        <p class="text-center text-purple-600 py-4">Sin workspaces dedicados</p>
+                        {% endif %}
+                    </div>
+                </details>
+            </div>
+        </div>
+    </details>
+</div>
+{% empty %}
+<div class="bg-white rounded-lg shadow p-8 text-center">
+    <p class="text-gray-500">No hay productos configurados</p>
+</div>
+{% endfor %}
+
 {% endblock %}

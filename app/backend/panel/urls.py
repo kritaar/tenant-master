@@ -24,6 +24,7 @@ urlpatterns = [
     path('deployments/', views.deployments, name='deployments'),
     path('products/', views.products, name='products'),
     path('databases/', views.databases, name='databases'),
+    path('databases/<str:db_name>/', views.database_manage, name='database_manage'),
     path('activity/', views.activity, name='activity'),
     path('settings/', views.settings_view, name='settings'),
 ]

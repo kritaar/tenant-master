@@ -463,27 +463,143 @@ def products(request):
 @login_required
 @user_passes_test(is_superuser)
 def databases(request):
-    """Lista de bases de datos"""
+    """Lista de bases de datos jerárquica"""
     try:
-        tenants = Tenant.objects.select_related('product').all()
+        # 1. Sistema Maestro
+        master_db = {
+            'name': 'tenant_master',
+            'type': 'master',
+            'users_count': User.objects.count(),
+            'products_count': Product.objects.count(),
+            'workspaces_count': Tenant.objects.count(),
+        }
         
-        db_info = []
-        for tenant in tenants:
-            db_info.append({
-                'tenant': tenant,
-                'db_name': tenant.db_name,
-                'db_user': tenant.db_user,
-                'db_host': tenant.db_host,
-                'db_port': tenant.db_port,
+        # 2. Por Producto
+        products = Product.objects.filter(is_active=True).annotate(
+            tenant_count=Count('tenant')
+        )
+        
+        products_data = []
+        for product in products:
+            # Workspaces SHARED
+            shared_tenants = Tenant.objects.filter(
+                product=product,
+                type='shared'
+            ).select_related('owner')
+            
+            shared_data = []
+            for tenant in shared_tenants:
+                # Contar usuarios del tenant
+                user_count = len(get_product_users(product.name, tenant.id))
+                
+                # Contar tablas (intentar)
+                table_count = get_table_count(tenant.db_name)
+                
+                shared_data.append({
+                    'id': tenant.id,
+                    'db_name': tenant.db_name,
+                    'subdomain': tenant.subdomain,
+                    'url': tenant.url,
+                    'owner': tenant.owner.username,
+                    'status': tenant.status,
+                    'users_count': user_count,
+                    'tables_count': table_count,
+                    'created_at': tenant.created_at,
+                })
+            
+            # Workspaces DEDICATED
+            dedicated_tenants = Tenant.objects.filter(
+                product=product,
+                type='dedicated'
+            ).select_related('owner')
+            
+            dedicated_data = []
+            for tenant in dedicated_tenants:
+                user_count = len(get_product_users(product.name, tenant.id))
+                table_count = get_table_count(tenant.db_name)
+                
+                dedicated_data.append({
+                    'id': tenant.id,
+                    'db_name': tenant.db_name,
+                    'subdomain': tenant.subdomain,
+                    'url': tenant.url,
+                    'owner': tenant.owner.username,
+                    'status': tenant.status,
+                    'users_count': user_count,
+                    'tables_count': table_count,
+                    'project_path': tenant.project_path,
+                    'git_repo_url': tenant.git_repo_url,
+                    'created_at': tenant.created_at,
+                })
+            
+            products_data.append({
+                'id': product.id,
+                'name': product.name,
+                'display_name': product.display_name,
+                'icon': product.icon,
+                'github_repo_url': product.github_repo_url,
+                'template_path': product.template_path,
+                'shared_count': len(shared_data),
+                'dedicated_count': len(dedicated_data),
+                'shared_tenants': shared_data,
+                'dedicated_tenants': dedicated_data,
             })
         
         context = {
-            'db_info': db_info,
+            'master_db': master_db,
+            'products': products_data,
         }
         return render(request, 'panel/databases.html', context)
     except Exception as e:
-        messages.error(request, f'Error al cargar bases de datos: {str(e)}')
-        return render(request, 'panel/databases.html', {'db_info': []})
+        messages.error(request, f'Error al cargar bases de datos: {str(e)}')  
+        return render(request, 'panel/databases.html', {'master_db': {}, 'products': []})
+
+
+@login_required
+@user_passes_test(is_superuser)
+def database_manage(request, db_name):
+    """Interfaz SQL para gestionar una base de datos específica"""
+    try:
+        # Verificar que la BD existe
+        if db_name == 'tenant_master':
+            db_info = {
+                'name': db_name,
+                'type': 'master',
+                'workspace': None,
+            }
+        else:
+            tenant = Tenant.objects.filter(db_name=db_name).first()
+            if not tenant:
+                messages.error(request, f'Base de datos {db_name} no encontrada')
+                return redirect('databases')
+            
+            db_info = {
+                'name': db_name,
+                'type': tenant.type,
+                'workspace': tenant,
+            }
+        
+        # Si es POST, ejecutar query
+        query_result = None
+        if request.method == 'POST':
+            sql_query = request.POST.get('sql_query', '').strip()
+            
+            if sql_query:
+                query_result = execute_sql_query(db_name, sql_query)
+        
+        # Listar tablas
+        tables = get_database_tables(db_name)
+        
+        context = {
+            'db_info': db_info,
+            'tables': tables,
+            'query_result': query_result,
+        }
+        return render(request, 'panel/database_manage.html', context)
+        
+    except Exception as e:
+        messages.error(request, f'Error: {str(e)}')
+        return redirect('databases')
 
 
 @login_required
@@ -675,6 +791,129 @@ def get_client_ip(request):
     else:
         ip = request.META.get('REMOTE_ADDR')
     return ip
+
+
+def get_table_count(db_name):
+    """Cuenta las tablas en una base de datos"""
+    try:
+        conn = psycopg2.connect(
+            host=settings.DATABASES['default']['HOST'],
+            port=settings.DATABASES['default']['PORT'],
+            user=settings.DATABASES['default']['USER'],
+            password=settings.DATABASES['default']['PASSWORD'],
+            database=db_name
+        )
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+            AND table_type = 'BASE TABLE'
+        """)
+        
+        count = cursor.fetchone()[0]
+        cursor.close()
+        conn.close()
+        return count
+    except:
+        return 0
+
+
+def get_database_tables(db_name):
+    """Obtiene lista de tablas de una base de datos con info"""
+    try:
+        conn = psycopg2.connect(
+            host=settings.DATABASES['default']['HOST'],
+            port=settings.DATABASES['default']['PORT'],
+            user=settings.DATABASES['default']['USER'],
+            password=settings.DATABASES['default']['PASSWORD'],
+            database=db_name
+        )
+        cursor = conn.cursor()
+        
+        # Obtener tablas con conteo de filas
+        cursor.execute("""
+            SELECT 
+                schemaname,
+                tablename,
+                (SELECT COUNT(*) FROM information_schema.columns 
+                 WHERE table_name = tablename) as column_count
+            FROM pg_tables
+            WHERE schemaname = 'public'
+            ORDER BY tablename
+        """)
+        
+        tables = []
+        for row in cursor.fetchall():
+            schema, table_name, column_count = row
+            
+            # Obtener conteo de filas (puede ser lento en tablas grandes)
+            try:
+                cursor.execute(f'SELECT COUNT(*) FROM {table_name}')
+                row_count = cursor.fetchone()[0]
+            except:
+                row_count = 0
+            
+            tables.append({
+                'name': table_name,
+                'columns': column_count,
+                'rows': row_count,
+            })
+        
+        cursor.close()
+        conn.close()
+        return tables
+    except Exception as e:
+        print(f"Error getting tables: {e}")
+        return []
+
+
+def execute_sql_query(db_name, sql_query):
+    """Ejecuta una query SQL y retorna resultados"""
+    try:
+        conn = psycopg2.connect(
+            host=settings.DATABASES['default']['HOST'],
+            port=settings.DATABASES['default']['PORT'],
+            user=settings.DATABASES['default']['USER'],
+            password=settings.DATABASES['default']['PASSWORD'],
+            database=db_name
+        )
+        cursor = conn.cursor()
+        
+        # Ejecutar query
+        cursor.execute(sql_query)
+        
+        # Si es SELECT, obtener resultados
+        if sql_query.strip().upper().startswith('SELECT'):
+            columns = [desc[0] for desc in cursor.description]
+            rows = cursor.fetchall()
+            
+            result = {
+                'success': True,
+                'type': 'select',
+                'columns': columns,
+                'rows': rows,
+                'row_count': len(rows),
+            }
+        else:
+            # Para INSERT, UPDATE, DELETE, etc.
+            conn.commit()
+            result = {
+                'success': True,
+                'type': 'modify',
+                'affected_rows': cursor.rowcount,
+            }
+        
+        cursor.close()
+        conn.close()
+        return result
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e),
+        }
 
 
 # ============================================
