@@ -11,15 +11,11 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-COPY app/backend/requirements.txt /app/requirements.txt
+COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r /app/requirements.txt
+    pip install --no-cache-dir -r requirements.txt
 
-# Copiar código del backend
-COPY app/backend /app
-
-# Copiar scripts de infraestructura
-COPY infra /app/infra
+COPY . .
 
 RUN mkdir -p /app/staticfiles /app/media
 
