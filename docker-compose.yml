@@ -22,7 +22,9 @@ services:
     restart: unless-stopped
 
   panel:
-    build: ./app/backend
+    build:
+      context: ./app/backend
+      dockerfile: Dockerfile
     container_name: tenant-master-panel
     image: tenant-master-panel:latest
     environment:
