@@ -48,9 +48,17 @@ services:
       - GITHUB_USERNAME=${GITHUB_USERNAME}
     labels:
       - "traefik.enable=true"
+      # Ruta para el panel de administración
       - "traefik.http.routers.panel.rule=Host(`${PANEL_DOMAIN}`)"
       - "traefik.http.routers.panel.entrypoints=websecure"
       - "traefik.http.routers.panel.tls.certresolver=le"
+      - "traefik.http.routers.panel.service=panel"
+      # Ruta para TODOS los workspaces (*.surgir.online)
+      - "traefik.http.routers.workspaces.rule=HostRegexp(`{subdomain:[a-z0-9-]+}.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.workspaces.entrypoints=websecure"
+      - "traefik.http.routers.workspaces.tls.certresolver=le"
+      - "traefik.http.routers.workspaces.service=panel"
+      # Servicio común
       - "traefik.http.services.panel.loadbalancer.server.port=8000"
     depends_on:
       postgres:
