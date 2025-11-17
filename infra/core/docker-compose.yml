@@ -7,10 +7,14 @@ services:
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
+      # TLS Challenge (HTTP)
       - --certificatesresolvers.le.acme.tlschallenge=true
       - --certificatesresolvers.le.acme.email=${LE_EMAIL}
       - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
       - --api.insecure=false
+      # Redirección HTTP a HTTPS
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
     ports:
       - "80:80"
       - "443:443"
@@ -48,19 +52,11 @@ services:
       - GITHUB_USERNAME=${GITHUB_USERNAME}
     labels:
       - "traefik.enable=true"
-      # Ruta para el panel de administración
-      - "traefik.http.routers.panel.rule=Host(`${PANEL_DOMAIN}`)"
-      - "traefik.http.routers.panel.entrypoints=websecure"
-      - "traefik.http.routers.panel.tls.certresolver=le"
-      - "traefik.http.routers.panel.service=panel"
-      - "traefik.http.routers.panel.priority=100"
-      # Ruta para TODOS los workspaces (*.surgir.online)
-      - "traefik.http.routers.workspaces.rule=HostRegexp(`{host:.+\\.${BASE_DOMAIN}}`)"
-      - "traefik.http.routers.workspaces.entrypoints=websecure"
-      - "traefik.http.routers.workspaces.tls.certresolver=le"
-      - "traefik.http.routers.workspaces.service=panel"
-      - "traefik.http.routers.workspaces.priority=50"
-      # Servicio común
+      # Catch-all: captura CUALQUIER dominio *.surgir.online
+      - "traefik.http.routers.catchall.rule=HostRegexp(`{host:.+}`)"
+      - "traefik.http.routers.catchall.entrypoints=websecure"
+      - "traefik.http.routers.catchall.tls.certresolver=le"
+      - "traefik.http.routers.catchall.service=panel"
       - "traefik.http.services.panel.loadbalancer.server.port=8000"
     depends_on:
       postgres:
