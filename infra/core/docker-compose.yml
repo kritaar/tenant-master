@@ -27,7 +27,9 @@ services:
       retries: 3
 
   panel:
-    build: ../../app/backend
+    build:
+      context: ../..
+      dockerfile: app/backend/Dockerfile
     container_name: tenant-master-panel
     image: tenant-master-panel:latest
     environment:
