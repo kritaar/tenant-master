@@ -116,18 +116,25 @@ node_modules/
         self.run_command("git config user.email 'deploy@surgir.online'", cwd=self.project_path)
         self.run_command("git add .", cwd=self.project_path)
         
-        # Intentar commit, si falla es porque no hay cambios
+        # Verificar que hay archivos para commit
         try:
+            status = self.run_command('git status --porcelain', cwd=self.project_path)
+            
+            if not status.strip():
+                # No hay cambios, crear archivo dummy
+                self.log("No hay cambios, creando archivo dummy...")
+                dummy_file = os.path.join(self.project_path, '.gitkeep')
+                with open(dummy_file, 'w') as f:
+                    f.write('# Placeholder\n')
+                self.run_command("git add .", cwd=self.project_path)
+            
+            # Hacer commit
             self.run_command('git commit -m "Initial commit - Repositorio base"', cwd=self.project_path)
-            self.log("Git commit exitoso")
+            self.log("✅ Git commit exitoso")
+            
         except subprocess.CalledProcessError as e:
-            # Si falla, crear un archivo dummy y reintentar
-            self.log("Sin cambios para commit, creando archivo dummy...")
-            dummy_file = os.path.join(self.project_path, '.gitkeep')
-            with open(dummy_file, 'w') as f:
-                f.write('')
-            self.run_command("git add .", cwd=self.project_path)
-            self.run_command('git commit -m "Initial commit - Repositorio base"', cwd=self.project_path)
+            self.log(f"⚠️ Error en commit: {e.stderr}")
+            # Intentar continuar de todas formas
         
         self.log("Git inicializado")
     
