@@ -232,12 +232,20 @@ node_modules/
             
             self.log(f"=== INICIALIZACIÓN COMPLETADA ===")
             
-            # Retornar éxito si al menos se creó el repo en GitHub
-            return {
-                'success': bool(repo_url),
-                'path': self.project_path,
-                'repo_url': repo_url or ''
-            }
+            # Retornar éxito SOLO si se creó el repo en GitHub
+            if repo_url:
+                return {
+                    'success': True,
+                    'path': self.project_path,
+                    'repo_url': repo_url
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': 'No se pudo crear el repositorio en GitHub',
+                    'path': self.project_path,
+                    'repo_url': ''
+                }
             
         except Exception as e:
             self.log(f"❌ ERROR EN INICIALIZACIÓN: {e}")
