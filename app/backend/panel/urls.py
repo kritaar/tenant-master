@@ -24,6 +24,7 @@ urlpatterns = [
     path('clients/', views.clients, name='clients'),
     path('deployments/', views.deployments, name='deployments'),
     path('products/', views.products, name='products'),
+    path('products/create/', views.create_product, name='create_product'),
     path('databases/', views.databases, name='databases'),
     path('databases/<str:db_name>/', views.database_manage, name='database_manage'),
     path('databases/<str:db_name>/users/', views.database_users_api, name='database_users_api'),

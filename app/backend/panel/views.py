@@ -580,6 +580,73 @@ def products(request):
 
 @login_required
 @user_passes_test(is_superuser)
+def create_product(request):
+    """Crear un nuevo producto"""
+    if request.method == 'POST':
+        try:
+            name = request.POST.get('name').lower().strip()
+            display_name = request.POST.get('display_name').strip()
+            description = request.POST.get('description', '').strip()
+            icon = request.POST.get('icon', '📦').strip()
+            
+            # Validar que no exista
+            if Product.objects.filter(name=name).exists():
+                messages.error(request, f'Ya existe un producto con el nombre "{name}"')
+                return redirect('products')
+            
+            # Crear producto
+            product = Product.objects.create(
+                name=name,
+                display_name=display_name,
+                description=description,
+                icon=icon,
+                template_path=f"/opt/proyectos/{name}-system",
+                is_active=True
+            )
+            
+            # Crear tabla master de usuarios para este producto
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(f"""
+                        CREATE TABLE IF NOT EXISTS {name}_users_master (
+                            id SERIAL PRIMARY KEY,
+                            tenant_id INTEGER,
+                            username VARCHAR(150) UNIQUE NOT NULL,
+                            password VARCHAR(255) NOT NULL,
+                            email VARCHAR(254),
+                            phone VARCHAR(20),
+                            login_type VARCHAR(20) DEFAULT 'username',
+                            is_super_admin BOOLEAN DEFAULT FALSE,
+                            is_active BOOLEAN DEFAULT TRUE,
+                            created_at TIMESTAMP DEFAULT NOW()
+                        )
+                    """)
+                    
+                    # Crear super admin en la tabla del producto
+                    ensure_super_admin_in_product(name, request.user)
+            except Exception as e:
+                print(f"Error creando tabla master: {e}")
+            
+            # Log de actividad
+            ActivityLog.objects.create(
+                user=request.user,
+                action='create',
+                description=f'Producto "{display_name}" ({name}) creado',
+                ip_address=get_client_ip(request)
+            )
+            
+            messages.success(request, f'Producto "{display_name}" creado exitosamente')
+            return redirect('products')
+            
+        except Exception as e:
+            messages.error(request, f'Error al crear producto: {str(e)}')
+            return redirect('products')
+    
+    return redirect('products')
+
+
+@login_required
+@user_passes_test(is_superuser)
 def databases(request):
     """Lista de bases de datos jerárquica"""
     try:
