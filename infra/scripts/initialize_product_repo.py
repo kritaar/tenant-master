@@ -215,19 +215,26 @@ node_modules/
             self.create_project_folder()
             
             # 2. Git init
-            self.initialize_git()
+            try:
+                self.initialize_git()
+            except Exception as e:
+                self.log(f"⚠️ Error en Git init (continuando): {e}")
             
-            # 3. Crear repo en GitHub
+            # 3. Crear repo en GitHub (lo más importante)
             repo_url = self.create_github_repo()
             
-            # 4. Push a GitHub
+            # 4. Push a GitHub (si es posible)
             if repo_url:
-                self.push_to_github(repo_url)
+                try:
+                    self.push_to_github(repo_url)
+                except Exception as e:
+                    self.log(f"⚠️ Error en push (repo ya creado): {e}")
             
             self.log(f"=== INICIALIZACIÓN COMPLETADA ===")
             
+            # Retornar éxito si al menos se creó el repo en GitHub
             return {
-                'success': True,
+                'success': bool(repo_url),
                 'path': self.project_path,
                 'repo_url': repo_url or ''
             }
