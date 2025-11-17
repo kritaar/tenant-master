@@ -7,13 +7,11 @@ services:
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
-      # HTTP Challenge (más confiable que TLS Challenge)
-      - --certificatesresolvers.le.acme.httpchallenge=true
-      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
-      - --certificatesresolvers.le.acme.email=${LE_EMAIL}
-      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      # Usar certificado wildcard manual
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
       - --api.insecure=false
-      # Redirección HTTP a HTTPS global
+      # Redirección HTTP a HTTPS
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
       - --entrypoints.web.http.redirections.entrypoint.permanent=true
@@ -22,7 +20,8 @@ services:
       - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik_letsencrypt:/letsencrypt
+      - /opt/certs:/etc/traefik/certs:ro
+      - /opt/traefik-config:/etc/traefik/dynamic:ro
     networks:
       - tenant-network
     restart: unless-stopped
@@ -57,7 +56,7 @@ services:
       # Catch-all: captura CUALQUIER dominio
       - "traefik.http.routers.catchall.rule=HostRegexp(`{host:.+}`)"
       - "traefik.http.routers.catchall.entrypoints=websecure"
-      - "traefik.http.routers.catchall.tls.certresolver=le"
+      - "traefik.http.routers.catchall.tls=true"
       - "traefik.http.routers.catchall.service=panel"
       # Servicio
       - "traefik.http.services.panel.loadbalancer.server.port=8000"
