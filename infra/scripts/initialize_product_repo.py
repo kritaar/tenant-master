@@ -180,10 +180,17 @@ node_modules/
         
         self.log(f"Haciendo push a {repo_url}")
         
+        # Convertir URL a formato con token para autenticación
+        if self.github_token and 'https://github.com/' in repo_url:
+            # Convertir https://github.com/user/repo.git a https://token@github.com/user/repo.git
+            auth_url = repo_url.replace('https://github.com/', f'https://{self.github_token}@github.com/')
+        else:
+            auth_url = repo_url
+        
         try:
-            self.run_command(f"git remote add origin {repo_url}", cwd=self.project_path)
+            self.run_command(f"git remote add origin {auth_url}", cwd=self.project_path)
         except:
-            self.run_command(f"git remote set-url origin {repo_url}", cwd=self.project_path)
+            self.run_command(f"git remote set-url origin {auth_url}", cwd=self.project_path)
         
         try:
             self.run_command("git branch -M main", cwd=self.project_path)
