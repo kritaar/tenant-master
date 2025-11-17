@@ -7,14 +7,16 @@ services:
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
-      # TLS Challenge (HTTP)
-      - --certificatesresolvers.le.acme.tlschallenge=true
+      # HTTP Challenge (más confiable que TLS Challenge)
+      - --certificatesresolvers.le.acme.httpchallenge=true
+      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
       - --certificatesresolvers.le.acme.email=${LE_EMAIL}
       - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
       - --api.insecure=false
-      # Redirección HTTP a HTTPS
+      # Redirección HTTP a HTTPS global
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.web.http.redirections.entrypoint.permanent=true
     ports:
       - "80:80"
       - "443:443"
@@ -52,11 +54,12 @@ services:
       - GITHUB_USERNAME=${GITHUB_USERNAME}
     labels:
       - "traefik.enable=true"
-      # Catch-all: captura CUALQUIER dominio *.surgir.online
+      # Catch-all: captura CUALQUIER dominio
       - "traefik.http.routers.catchall.rule=HostRegexp(`{host:.+}`)"
       - "traefik.http.routers.catchall.entrypoints=websecure"
       - "traefik.http.routers.catchall.tls.certresolver=le"
       - "traefik.http.routers.catchall.service=panel"
+      # Servicio
       - "traefik.http.services.panel.loadbalancer.server.port=8000"
     depends_on:
       postgres:
