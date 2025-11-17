@@ -7,11 +7,9 @@ services:
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
-      # Usar certificado wildcard manual
       - --providers.file.directory=/etc/traefik/dynamic
       - --providers.file.watch=true
       - --api.insecure=false
-      # Redirección HTTP a HTTPS
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
       - --entrypoints.web.http.redirections.entrypoint.permanent=true
@@ -53,12 +51,10 @@ services:
       - GITHUB_USERNAME=${GITHUB_USERNAME}
     labels:
       - "traefik.enable=true"
-      # Catch-all: captura CUALQUIER dominio
       - "traefik.http.routers.catchall.rule=HostRegexp(`{host:.+}`)"
       - "traefik.http.routers.catchall.entrypoints=websecure"
       - "traefik.http.routers.catchall.tls=true"
       - "traefik.http.routers.catchall.service=panel"
-      # Servicio
       - "traefik.http.services.panel.loadbalancer.server.port=8000"
     depends_on:
       postgres:
