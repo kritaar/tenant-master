@@ -111,6 +111,11 @@ node_modules/
         except:
             pass
         
+        # Verificar si ya es un repo git
+        if os.path.exists(os.path.join(self.project_path, '.git')):
+            self.log("Git ya inicializado, saltando...")
+            return
+        
         self.run_command("git init", cwd=self.project_path)
         self.run_command("git config user.name 'Tenant Master'", cwd=self.project_path)
         self.run_command("git config user.email 'deploy@surgir.online'", cwd=self.project_path)
@@ -128,13 +133,17 @@ node_modules/
                     f.write('# Placeholder\n')
                 self.run_command("git add .", cwd=self.project_path)
             
-            # Hacer commit
-            self.run_command('git commit -m "Initial commit - Repositorio base"', cwd=self.project_path)
-            self.log("✅ Git commit exitoso")
+            # Hacer commit solo si hay cambios
+            status = self.run_command('git status --porcelain', cwd=self.project_path)
+            if status.strip():
+                self.run_command('git commit -m "Initial commit - Repositorio base"', cwd=self.project_path)
+                self.log("✅ Git commit exitoso")
+            else:
+                self.log("ℹ️ No hay cambios para commit")
             
         except subprocess.CalledProcessError as e:
             self.log(f"⚠️ Error en commit: {e.stderr}")
-            # Intentar continuar de todas formas
+            # Continuar de todas formas
         
         self.log("Git inicializado")
     
