@@ -5,6 +5,7 @@ services:
     command:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=tenant-master-core_tenant-network
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
       - --providers.file.directory=/etc/traefik/dynamic
