@@ -68,44 +68,6 @@ services:
       timeout: 10s
       retries: 3
 
-  erp-shared:
-    build: ./app/products/erp
-    container_name: tenant-master-erp-shared
-    image: tenant-master-erp-shared:latest
-    environment:
-      - DEBUG=${DEBUG:-False}
-      - SECRET_KEY=${DJANGO_SECRET_KEY}
-      - ALLOWED_HOSTS=*.surgir.online
-      - DB_HOST=tenant-master-postgres
-      - DB_PORT=5432
-      - DB_USER=${POSTGRES_USER}
-      - DB_PASSWORD=${POSTGRES_PASSWORD}
-      - REDIS_URL=${REDIS_URL}
-      - BASE_DOMAIN=${BASE_DOMAIN}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.erp-shared.rule=HostRegexp(`{subdomain:[a-z0-9-]+}.surgir.online`) && !Host(`panel.surgir.online`)"
-      - "traefik.http.routers.erp-shared.entrypoints=websecure"
-      - "traefik.http.routers.erp-shared.tls.certresolver=le"
-      - "traefik.http.services.erp-shared.loadbalancer.server.port=8000"
-      - "traefik.http.routers.erp-shared.priority=1"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    networks:
-      - tenant-network
-    volumes:
-      - erp_static:/app/staticfiles
-      - erp_media:/app/media
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
   redis:
     image: redis:7-alpine
     container_name: tenant-master-redis
@@ -149,5 +111,3 @@ volumes:
   panel_static:
   panel_media:
   postgres_data:
-  erp_static:
-  erp_media:
