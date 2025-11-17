@@ -55,7 +55,7 @@ services:
       - "traefik.http.routers.panel.service=panel"
       - "traefik.http.routers.panel.priority=100"
       # Ruta para TODOS los workspaces (*.surgir.online)
-      - "traefik.http.routers.workspaces.rule=HostRegexp(`^[a-z0-9-]+\\.${BASE_DOMAIN}$`)"
+      - "traefik.http.routers.workspaces.rule=HostRegexp(`{host:.+\\.${BASE_DOMAIN}}`)"
       - "traefik.http.routers.workspaces.entrypoints=websecure"
       - "traefik.http.routers.workspaces.tls.certresolver=le"
       - "traefik.http.routers.workspaces.service=panel"
