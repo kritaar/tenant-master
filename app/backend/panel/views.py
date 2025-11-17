@@ -481,6 +481,8 @@ def workspace_action(request, tenant_id):
                 db_name = tenant.db_name
                 db_user = tenant.db_user
                 project_path = tenant.project_path
+                git_repo_url = tenant.git_repo_url
+                delete_repo = request.POST.get('delete_repo') == 'true'
                 
                 # 1. Eliminar usuarios del producto
                 try:
@@ -502,7 +504,19 @@ def workspace_action(request, tenant_id):
                     except Exception as e:
                         print(f"Error eliminando archivos: {e}")
                 
-                # 4. Eliminar el tenant de la BD
+                # 4. Eliminar repositorio de GitHub si el usuario lo marcó
+                if delete_repo and git_repo_url:
+                    try:
+                        repo_name = git_repo_url.split('/')[-1].replace('.git', '')
+                        result = delete_github_repo(repo_name)
+                        if result.get('success'):
+                            messages.success(request, f'Repositorio {repo_name} eliminado de GitHub')
+                        else:
+                            messages.warning(request, f'No se pudo eliminar repo: {result.get("error")}')
+                    except Exception as e:
+                        print(f"Error eliminando repo de GitHub: {e}")
+                
+                # 5. Eliminar el tenant de la BD
                 tenant.delete()
                 
                 messages.success(request, f'Workspace {company_name} eliminado permanentemente')
@@ -901,6 +915,76 @@ def activity(request):
 
 @login_required
 @user_passes_test(is_superuser)
+def repositories(request):
+    """Lista de repositorios de GitHub y su vinculación con workspaces"""
+    try:
+        # Obtener todos los repos de GitHub
+        github_repos = list_github_repos()
+        
+        # Obtener todos los workspaces con repo
+        workspaces_with_repo = Tenant.objects.exclude(git_repo_url='').select_related('product', 'owner')
+        
+        # Crear diccionario de repos vinculados
+        linked_repos = {}
+        for workspace in workspaces_with_repo:
+            repo_name = workspace.git_repo_url.split('/')[-1].replace('.git', '')
+            linked_repos[repo_name] = workspace
+        
+        # Clasificar repos
+        repos_data = []
+        for repo in github_repos:
+            repo_name = repo['name']
+            workspace = linked_repos.get(repo_name)
+            
+            repos_data.append({
+                'name': repo_name,
+                'url': repo['html_url'],
+                'clone_url': repo['clone_url'],
+                'private': repo['private'],
+                'created_at': repo['created_at'],
+                'updated_at': repo['updated_at'],
+                'workspace': workspace,
+                'is_orphan': workspace is None,
+            })
+        
+        # Ordenar: vinculados primero, luego huérfanos
+        repos_data.sort(key=lambda x: (x['is_orphan'], x['name']))
+        
+        context = {
+            'repos': repos_data,
+            'total_repos': len(repos_data),
+            'orphan_count': sum(1 for r in repos_data if r['is_orphan']),
+            'products': Product.objects.filter(is_active=True),
+        }
+        return render(request, 'panel/repositories.html', context)
+    except Exception as e:
+        messages.error(request, f'Error al cargar repositorios: {str(e)}')
+        return render(request, 'panel/repositories.html', {'repos': [], 'total_repos': 0, 'orphan_count': 0})
+
+
+@login_required
+@user_passes_test(is_superuser)
+def delete_repository(request):
+    """Eliminar un repositorio huérfano de GitHub"""
+    if request.method == 'POST':
+        try:
+            repo_name = request.POST.get('repo_name')
+            
+            result = delete_github_repo(repo_name)
+            
+            if result.get('success'):
+                messages.success(request, f'Repositorio "{repo_name}" eliminado de GitHub')
+            else:
+                messages.error(request, f'Error al eliminar: {result.get("error")}')
+                
+        except Exception as e:
+            messages.error(request, f'Error: {str(e)}')
+    
+    return redirect('repositories')
+
+
+@login_required
+@user_passes_test(is_superuser)
 def settings_view(request):
     """Configuración del panel"""
     try:
@@ -1287,3 +1371,58 @@ def initialize_product_repo(product_name):
             'success': False,
             'error': str(e)
         }
+
+
+def list_github_repos():
+    """Lista todos los repositorios en GitHub"""
+    github_token = os.getenv('GITHUB_TOKEN')
+    github_username = os.getenv('GITHUB_USERNAME', 'kritaar')
+    
+    if not github_token:
+        return []
+    
+    try:
+        url = "https://api.github.com/user/repos"
+        headers = {
+            "Authorization": f"token {github_token}",
+            "Accept": "application/vnd.github.v3+json"
+        }
+        params = {
+            "per_page": 100,
+            "type": "owner"
+        }
+        
+        response = requests.get(url, headers=headers, params=params)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return []
+    except Exception as e:
+        print(f"Error listando repos: {e}")
+        return []
+
+
+def delete_github_repo(repo_name):
+    """Elimina un repositorio de GitHub"""
+    github_token = os.getenv('GITHUB_TOKEN')
+    github_username = os.getenv('GITHUB_USERNAME', 'kritaar')
+    
+    if not github_token:
+        return {'success': False, 'error': 'Token no configurado'}
+    
+    try:
+        url = f"https://api.github.com/repos/{github_username}/{repo_name}"
+        headers = {
+            "Authorization": f"token {github_token}",
+            "Accept": "application/vnd.github.v3+json"
+        }
+        
+        response = requests.delete(url, headers=headers)
+        
+        if response.status_code == 204:
+            return {'success': True}
+        else:
+            return {'success': False, 'error': f'Error {response.status_code}'}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}

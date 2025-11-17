@@ -1,0 +1,230 @@
+{% extends 'panel/base.html' %}
+
+{% block title %}Repositorios GitHub{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900">Repositorios GitHub</h1>
+    <p class="text-gray-600 mt-2">Gestión de repositorios y vinculación con workspaces</p>
+</div>
+
+<!-- Estadísticas -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center">
+            <div class="flex-shrink-0 bg-blue-100 rounded-full p-3">
+                <span class="text-2xl">📦</span>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm text-gray-600">Total Repositorios</p>
+                <p class="text-2xl font-bold">{{ total_repos }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center">
+            <div class="flex-shrink-0 bg-green-100 rounded-full p-3">
+                <span class="text-2xl">🔗</span>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm text-gray-600">Vinculados</p>
+                <p class="text-2xl font-bold">{{ total_repos|add:"-orphan_count" }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center">
+            <div class="flex-shrink-0 bg-yellow-100 rounded-full p-3">
+                <span class="text-2xl">⚠️</span>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm text-gray-600">Huérfanos</p>
+                <p class="text-2xl font-bold">{{ orphan_count }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lista de repositorios -->
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Repositorio</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Workspace Vinculado</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actualizado</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+            {% for repo in repos %}
+            <tr class="{% if repo.is_orphan %}bg-yellow-50{% endif %}">
+                <td class="px-6 py-4">
+                    <div class="flex items-center">
+                        <span class="text-lg mr-2">{% if repo.private %}🔒{% else %}🌐{% endif %}</span>
+                        <div>
+                            <a href="{{ repo.url }}" target="_blank" class="text-blue-600 hover:underline font-medium">
+                                {{ repo.name }}
+                            </a>
+                            <p class="text-xs text-gray-500">{{ repo.clone_url }}</p>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    {% if repo.is_orphan %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            ⚠️ Huérfano
+                        </span>
+                    {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            ✓ Vinculado
+                        </span>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4">
+                    {% if repo.workspace %}
+                        <div>
+                            <a href="{% url 'workspace_detail' repo.workspace.id %}" class="text-blue-600 hover:underline">
+                                {{ repo.workspace.company_name }}
+                            </a>
+                            <p class="text-xs text-gray-500">{{ repo.workspace.subdomain }}.surgir.online</p>
+                        </div>
+                    {% else %}
+                        <span class="text-gray-400 text-sm">Sin vincular</span>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-500">
+                    {{ repo.updated_at|date:"d/m/Y H:i" }}
+                </td>
+                <td class="px-6 py-4">
+                    <div class="flex gap-2">
+                        <a href="{{ repo.url }}" target="_blank" 
+                           class="text-blue-600 hover:text-blue-800 text-sm">
+                            Ver en GitHub
+                        </a>
+                        {% if repo.is_orphan %}
+                        <button onclick="openLinkRepoModal('{{ repo.name }}', '{{ repo.clone_url }}')"
+                                class="text-green-600 hover:text-green-800 text-sm">
+                            Vincular
+                        </button>
+                        <button onclick="confirmDeleteRepo('{{ repo.name }}')"
+                                class="text-red-600 hover:text-red-800 text-sm">
+                            Eliminar
+                        </button>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" class="px-6 py-12 text-center text-gray-500">
+                    No hay repositorios en GitHub
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal para vincular repo a workspace -->
+<div id="linkRepoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-8 max-w-md w-full mx-4">
+        <h2 class="text-2xl font-bold mb-6">Vincular Repositorio</h2>
+        
+        <form method="POST" action="{% url 'create_workspace' %}">
+            {% csrf_token %}
+            <input type="hidden" name="link_repo_url" id="link_repo_url">
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Repositorio</label>
+                <input type="text" id="repo_name_display" readonly 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50">
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Nombre de la empresa</label>
+                <input type="text" name="company_name" required 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Subdominio</label>
+                <input type="text" name="subdomain" required 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Producto</label>
+                <select name="product" required 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Seleccionar producto</option>
+                    {% for product in products %}
+                    <option value="{{ product.id }}">{{ product.icon }} {{ product.display_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="flex gap-3">
+                <button type="button" onclick="closeLinkRepoModal()" 
+                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Cancelar
+                </button>
+                <button type="submit" 
+                        class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                    Crear y Vincular
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openLinkRepoModal(repoName, cloneUrl) {
+    document.getElementById('repo_name_display').value = repoName;
+    document.getElementById('link_repo_url').value = cloneUrl;
+    document.getElementById('linkRepoModal').classList.remove('hidden');
+}
+
+function closeLinkRepoModal() {
+    document.getElementById('linkRepoModal').classList.add('hidden');
+}
+
+function confirmDeleteRepo(repoName) {
+    if (confirm(`¿Estás seguro de eliminar el repositorio "${repoName}" de GitHub?\n\nEsta acción NO se puede deshacer.`)) {
+        // Crear formulario y enviarlo
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/repositories/delete/';
+        
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        
+        const repoInput = document.createElement('input');
+        repoInput.type = 'hidden';
+        repoInput.name = 'repo_name';
+        repoInput.value = repoName;
+        
+        form.appendChild(csrfInput);
+        form.appendChild(repoInput);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+// Cerrar modal al hacer clic fuera
+document.getElementById('linkRepoModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeLinkRepoModal();
+    }
+});
+</script>
+
+<!-- Token CSRF para uso en JavaScript -->
+{% csrf_token %}
+{% endblock %}

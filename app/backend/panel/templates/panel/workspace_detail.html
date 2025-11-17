@@ -213,11 +213,16 @@
                 <form method="post" action="{% url 'workspace_action' tenant.id %}" 
                       onsubmit="return confirm('¿Eliminar este workspace?')">
                     {% csrf_token %}
-                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="action" value="mark_inactive">
                     <button type="submit" class="w-full bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm">
                         <i class="fas fa-trash mr-2"></i>Eliminar
                     </button>
                 </form>
+                
+                <button onclick="openDeleteModal()" 
+                        class="w-full bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-lg text-sm">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>Eliminar Permanentemente
+                </button>
             </div>
         </div>
     </div>
@@ -310,7 +315,106 @@
     </div>
 </div>
 
+<!-- Modal de confirmación de eliminación -->
+<div id="deleteModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-8 max-w-md w-full mx-4">
+        <div class="text-center mb-6">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-900">Eliminar Permanentemente</h2>
+            <p class="text-gray-600 mt-2">
+                Esta acción NO se puede deshacer. Se eliminarán:
+            </p>
+        </div>
+        
+        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+            <ul class="space-y-2 text-sm text-gray-700">
+                <li><i class="fas fa-check text-red-500 mr-2"></i>Base de datos y todos los datos</li>
+                <li><i class="fas fa-check text-red-500 mr-2"></i>Todos los usuarios del workspace</li>
+                {% if tenant.type == 'dedicated' %}
+                <li><i class="fas fa-check text-red-500 mr-2"></i>Archivos del proyecto</li>
+                {% endif %}
+                <li><i class="fas fa-check text-red-500 mr-2"></i>Registro del workspace</li>
+            </ul>
+        </div>
+        
+        {% if tenant.git_repo_url %}
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+            <label class="flex items-start cursor-pointer">
+                <input type="checkbox" id="delete_repo_checkbox" 
+                       class="mt-1 h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded">
+                <span class="ml-3">
+                    <span class="text-sm font-medium text-gray-900">También eliminar repositorio de GitHub</span>
+                    <span class="block text-xs text-gray-600 mt-1">
+                        <i class="fab fa-github mr-1"></i>{{ tenant.git_repo_url }}
+                    </span>
+                </span>
+            </label>
+        </div>
+        {% endif %}
+        
+        <form method="post" action="{% url 'workspace_action' tenant.id %}" id="deleteForm">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete_permanent">
+            <input type="hidden" name="delete_repo" id="delete_repo_input" value="false">
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Escribe "<span class="font-bold text-red-600">ELIMINAR</span>" para confirmar
+                </label>
+                <input type="text" id="confirm_text" 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                       placeholder="ELIMINAR">
+            </div>
+            
+            <div class="flex gap-3">
+                <button type="button" onclick="closeDeleteModal()" 
+                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Cancelar
+                </button>
+                <button type="submit" id="confirmDeleteBtn" disabled
+                        class="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed">
+                    Eliminar Permanentemente
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
+function openDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('hidden');
+    document.getElementById('confirm_text').value = '';
+    document.getElementById('confirmDeleteBtn').disabled = true;
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.add('hidden');
+}
+
+// Habilitar botón solo si escribe "ELIMINAR"
+document.getElementById('confirm_text').addEventListener('input', function(e) {
+    const btn = document.getElementById('confirmDeleteBtn');
+    btn.disabled = e.target.value !== 'ELIMINAR';
+});
+
+// Actualizar input hidden según checkbox
+document.getElementById('deleteForm').addEventListener('submit', function(e) {
+    const checkbox = document.getElementById('delete_repo_checkbox');
+    const input = document.getElementById('delete_repo_input');
+    if (checkbox) {
+        input.value = checkbox.checked ? 'true' : 'false';
+    }
+});
+
+// Cerrar modal al hacer clic fuera
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeDeleteModal();
+    }
+});
+
 function copyToClipboard(text) {
     navigator.clipboard.writeText(text).then(() => {
         // Mostrar feedback visual
