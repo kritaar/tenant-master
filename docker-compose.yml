@@ -5,26 +5,21 @@ services:
     command:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
-      - --certificatesresolvers.le.acme.tlschallenge=true
-      - --certificatesresolvers.le.acme.email=${LE_EMAIL}
-      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
       - --api.insecure=false
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik_letsencrypt:/letsencrypt
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ./traefik-config:/etc/traefik/dynamic:ro
     networks:
       - tenant-network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "traefik", "healthcheck", "--ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
 
   panel:
     build: ./app/backend
@@ -48,7 +43,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.panel.rule=Host(`${PANEL_DOMAIN}`)"
       - "traefik.http.routers.panel.entrypoints=websecure"
-      - "traefik.http.routers.panel.tls.certresolver=le"
+      - "traefik.http.routers.panel.tls=true"
       - "traefik.http.services.panel.loadbalancer.server.port=8000"
     depends_on:
       postgres:
@@ -106,7 +101,6 @@ networks:
     driver: bridge
 
 volumes:
-  traefik_letsencrypt:
   redis_data:
   panel_static:
   panel_media:

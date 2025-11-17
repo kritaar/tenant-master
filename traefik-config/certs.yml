@@ -1,0 +1,4 @@
+tls:
+  certificates:
+    - certFile: /etc/letsencrypt/live/surgir.online/fullchain.pem
+      keyFile: /etc/letsencrypt/live/surgir.online/privkey.pem
