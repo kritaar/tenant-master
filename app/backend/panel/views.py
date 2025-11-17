@@ -22,6 +22,7 @@ import subprocess
 import json
 import shutil
 import os
+import requests
 
 
 def is_superuser(user):
@@ -210,14 +211,27 @@ def create_workspace(request):
                         else:
                             messages.warning(request, f'No se pudo inicializar repositorio: {repo_result.get("error")}')
                     else:
-                        # Repo ya existe, solo asignar
                         tenant.git_repo_url = product.github_repo_url
                         tenant.save()
                         messages.info(request, f'Repositorio base ya existe: {product.github_repo_url}')
+                        
+                    deploy_result = deploy_shared_workspace_auto(
+                        product.name,
+                        subdomain,
+                        db_name,
+                        db_user,
+                        db_password
+                    )
+                    
+                    if deploy_result.get('success'):
+                        tenant.is_deployed = True
+                        tenant.save()
+                        messages.success(request, f'Workspace {company_name} desplegado exitosamente en {deploy_result.get("url")}')
+                    else:
+                        messages.warning(request, f'Workspace creado pero deployment falló: {deploy_result.get("error")}')
                 except Exception as e:
-                    messages.warning(request, f'No se pudo inicializar repositorio: {str(e)}')
+                    messages.warning(request, f'Error en deployment: {str(e)}')
             
-            # Si es dedicado y el checkbox está marcado, ejecutar deployment automático
             if workspace_type == 'dedicated' and create_github_repo:
                 try:
                     deploy_result = deploy_dedicated_workspace(
@@ -1403,7 +1417,6 @@ def list_github_repos():
 
 
 def delete_github_repo(repo_name):
-    """Elimina un repositorio de GitHub"""
     github_token = os.getenv('GITHUB_TOKEN')
     github_username = os.getenv('GITHUB_USERNAME', 'kritaar')
     
@@ -1425,3 +1438,45 @@ def delete_github_repo(repo_name):
             return {'success': False, 'error': f'Error {response.status_code}'}
     except Exception as e:
         return {'success': False, 'error': str(e)}
+
+
+def deploy_shared_workspace_auto(product_name, subdomain, db_name, db_user, db_password):
+    try:
+        script_path = '/app/infra/scripts/deploy_shared_workspace.py'
+        
+        result = subprocess.run(
+            ['python3', script_path, product_name, subdomain, db_name, db_user, db_password],
+            capture_output=True,
+            text=True,
+            timeout=600
+        )
+        
+        output_lines = result.stdout.split('\n')
+        json_start = False
+        json_output = []
+        
+        for line in output_lines:
+            if '=== RESULT ===' in line:
+                json_start = True
+                continue
+            if json_start and line.strip():
+                json_output.append(line)
+        
+        if json_output:
+            return json.loads(''.join(json_output))
+        else:
+            return {
+                'success': False,
+                'error': 'No se pudo parsear el resultado del deployment'
+            }
+            
+    except subprocess.TimeoutExpired:
+        return {
+            'success': False,
+            'error': 'Deployment timeout (>10 min)'
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e)
+        }
