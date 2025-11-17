@@ -391,20 +391,21 @@ def create_workspace_repo(request, tenant_id):
                 result = initialize_product_repo(tenant.product.name)
                 
                 if result.get('success'):
-                    # Actualizar producto
-                    tenant.product.github_repo_url = result.get('repo_url', '')
-                    tenant.product.template_path = result.get('path', '')
-                    tenant.product.save()
-                    
-                    # Actualizar tenant
-                    tenant.git_repo_url = result.get('repo_url', '')
-                    tenant.save()
-                    
                     repo_url = result.get('repo_url', '')
+                    
+                    # Actualizar producto
                     if repo_url:
-                        messages.success(request, f'Repositorio creado: {repo_url}')
+                        tenant.product.github_repo_url = repo_url
+                        tenant.product.template_path = result.get('path', '')
+                        tenant.product.save()
+                        
+                        # Actualizar tenant
+                        tenant.git_repo_url = repo_url
+                        tenant.save()
+                        
+                        messages.success(request, f'Repositorio creado exitosamente')
                     else:
-                        messages.success(request, 'Repositorio creado exitosamente')
+                        messages.warning(request, 'Repositorio creado pero sin URL')
                 else:
                     messages.error(request, f'Error al crear repositorio: {result.get("error")}')
                     
@@ -419,15 +420,16 @@ def create_workspace_repo(request, tenant_id):
                 )
                 
                 if result.get('success'):
-                    tenant.git_repo_url = result.get('repo_url', '')
-                    tenant.is_deployed = True
-                    tenant.save()
-                    
                     repo_url = result.get('repo_url', '')
+                    
                     if repo_url:
-                        messages.success(request, f'Repositorio y deployment creados: {repo_url}')
+                        tenant.git_repo_url = repo_url
+                        tenant.is_deployed = True
+                        tenant.save()
+                        
+                        messages.success(request, f'Repositorio y deployment creados exitosamente')
                     else:
-                        messages.success(request, 'Repositorio y deployment creados exitosamente')
+                        messages.warning(request, 'Deployment creado pero sin URL de repo')
                 else:
                     messages.error(request, f'Error al crear repositorio: {result.get("error")}')
             
@@ -439,9 +441,6 @@ def create_workspace_repo(request, tenant_id):
                 description=f'Repositorio GitHub creado para {tenant.company_name}',
                 ip_address=get_client_ip(request)
             )
-            
-            # Recargar tenant desde la BD para mostrar el URL actualizado
-            tenant.refresh_from_db()
             
         except Exception as e:
             messages.error(request, f'Error al crear repositorio: {str(e)}')
