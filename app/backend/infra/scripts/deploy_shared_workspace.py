@@ -2,7 +2,6 @@
 import sys
 import json
 import subprocess
-import os
 
 def main():
     if len(sys.argv) != 6:
@@ -18,31 +17,79 @@ def main():
     db_user = sys.argv[4]
     db_password = sys.argv[5]
     
-    project_path = f"/opt/proyectos/{product_name}-system"
-    compose_file = f"{project_path}/docker-compose.yml"
+    container_name = f"tenant-master-{product_name}-shared"
     url = f"https://{subdomain}.surgir.online"
     
     try:
-        if not os.path.exists(project_path):
-            print(f"ERROR: El directorio {project_path} no existe")
+        print(f"Validando deployment SHARED para: {subdomain}")
+        print(f"Producto: {product_name}")
+        print(f"Contenedor esperado: {container_name}")
+        print(f"Base de datos: {db_name}")
+        
+        cmd = f"docker ps --filter name={container_name} --format '{{{{.Names}}}}'"
+        check_result = subprocess.run(
+            cmd,
+            shell=True,
+            capture_output=True,
+            text=True
+        )
+        
+        if check_result.returncode != 0:
             result = {
                 'success': False,
-                'error': f'Directorio {project_path} no encontrado'
+                'error': f'Error al verificar contenedor: {check_result.stderr}'
             }
-        else:
-            if not os.path.exists(compose_file):
-                print(f"ERROR: docker-compose.yml no existe en {project_path}")
+            print("=== RESULT ===")
+            print(json.dumps(result))
+            sys.exit(1)
+        
+        containers = check_result.stdout.strip().split('\n')
+        containers = [c for c in containers if c and container_name in c]
+        
+        if not containers:
+            result = {
+                'success': False,
+                'error': f'Contenedor {container_name} no encontrado. Debes agregarlo al stack tenant-master-core en Portainer y hacer Pull and redeploy.'
+            }
+            print("=== RESULT ===")
+            print(json.dumps(result))
+            sys.exit(1)
+        
+        found_container = containers[0]
+        print(f"✓ Contenedor compartido encontrado: {found_container}")
+        
+        cmd_status = f"docker inspect {found_container} --format '{{{{.State.Status}}}}'"
+        status_result = subprocess.run(
+            cmd_status,
+            shell=True,
+            capture_output=True,
+            text=True
+        )
+        
+        if status_result.returncode == 0:
+            status = status_result.stdout.strip()
+            print(f"✓ Estado del contenedor: {status}")
+            
+            if status != "running":
                 result = {
                     'success': False,
-                    'error': 'docker-compose.yml no encontrado'
+                    'error': f'El contenedor {found_container} existe pero no está corriendo (estado: {status})'
                 }
-            else:
-                print(f"✓ Proyecto compartido encontrado en {project_path}")
-                result = {
-                    'success': True,
-                    'url': url,
-                    'project_path': project_path
-                }
+                print("=== RESULT ===")
+                print(json.dumps(result))
+                sys.exit(1)
+        
+        print(f"✓ Base de datos configurada: {db_name}")
+        print(f"✓ URL del workspace: {url}")
+        print(f"✓ El contenedor {found_container} manejará las peticiones a {url}")
+        
+        result = {
+            'success': True,
+            'url': url,
+            'container_name': found_container,
+            'db_name': db_name,
+            'deployment_type': 'shared'
+        }
         
         print("=== RESULT ===")
         print(json.dumps(result))
