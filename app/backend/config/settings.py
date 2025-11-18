@@ -107,12 +107,12 @@ LOGIN_REDIRECT_URL = 'panel_dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 
 # SESSION_COOKIE_DOMAIN = config('BASE_DOMAIN', default=None)  # Comentado para permitir acceso por IP y puerto
-SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = False  # Desactivado temporalmente para desarrollo
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 
-CSRF_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SECURE = False  # Desactivado temporalmente para desarrollo
+CSRF_COOKIE_HTTPONLY = False  # Debe ser False para que JavaScript pueda leerlo
 CSRF_COOKIE_SAMESITE = 'Lax'
 
 BASE_DOMAIN = config('BASE_DOMAIN', default='surgir.online')
