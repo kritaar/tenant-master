@@ -1,38 +1,17 @@
 services:
-  traefik:
-    image: traefik:v3.1
-    container_name: tenant-master-traefik
-    command:
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --providers.file.directory=/etc/traefik/dynamic
-      - --providers.file.watch=true
-      - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-      - --api.insecure=false
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro
-      - ./traefik-config:/etc/traefik/dynamic:ro
-    networks:
-      - tenant-network
-    restart: unless-stopped
-
   panel:
     build:
       context: ./app/backend
       dockerfile: Dockerfile
     container_name: tenant-master-panel
     image: tenant-master-panel:latest
+    ports:
+      - "8000:8000"
     environment:
       - DEBUG=${DEBUG:-False}
       - SECRET_KEY=${DJANGO_SECRET_KEY}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - BASE_DOMAIN=${BASE_DOMAIN}
       - PANEL_DOMAIN=${PANEL_DOMAIN}
       - MASTER_USERNAME=${MASTER_USERNAME}
@@ -41,12 +20,6 @@ services:
       - PORTAINER_ENDPOINT_ID=${PORTAINER_ENDPOINT_ID}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_USERNAME=${GITHUB_USERNAME}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.panel.rule=Host(`${PANEL_DOMAIN}`)"
-      - "traefik.http.routers.panel.entrypoints=websecure"
-      - "traefik.http.routers.panel.tls=true"
-      - "traefik.http.services.panel.loadbalancer.server.port=8000"
     depends_on:
       postgres:
         condition: service_healthy
