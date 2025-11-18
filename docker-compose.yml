@@ -15,7 +15,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
-      - ./traefik-config:/etc/traefik/dynamic:ro
+      - /opt/traefik-config:/etc/traefik/dynamic:ro
     networks:
       - tenant-network
     restart: unless-stopped
