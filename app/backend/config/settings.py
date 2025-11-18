@@ -106,7 +106,7 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'panel_dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 
-SESSION_COOKIE_DOMAIN = config('BASE_DOMAIN', default=None)
+# SESSION_COOKIE_DOMAIN = config('BASE_DOMAIN', default=None)  # Comentado para permitir acceso por IP y puerto
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
@@ -121,6 +121,7 @@ PANEL_DOMAIN = config('PANEL_DOMAIN', default='panel.surgir.online')
 CSRF_TRUSTED_ORIGINS = [
     f'https://{PANEL_DOMAIN}',
     f'https://*.{BASE_DOMAIN}',
+    f'http://{PANEL_DOMAIN}:8001',  # Para desarrollo
 ]
 
 if DEBUG:
