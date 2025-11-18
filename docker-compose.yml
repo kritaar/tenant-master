@@ -41,9 +41,17 @@ services:
       - GITHUB_USERNAME=${GITHUB_USERNAME}
     labels:
       - "traefik.enable=true"
+      # Router para el panel principal
       - "traefik.http.routers.panel.rule=Host(`${PANEL_DOMAIN}`)"
       - "traefik.http.routers.panel.entrypoints=websecure"
       - "traefik.http.routers.panel.tls=true"
+      - "traefik.http.routers.panel.priority=100"
+      # Router para todos los subdominios (workspaces)
+      - "traefik.http.routers.workspaces.rule=HostRegexp(`{subdomain:[a-z0-9-]+}.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.workspaces.entrypoints=websecure"
+      - "traefik.http.routers.workspaces.tls=true"
+      - "traefik.http.routers.workspaces.priority=50"
+      # Servicio común para ambos routers
       - "traefik.http.services.panel.loadbalancer.server.port=8000"
     depends_on:
       postgres:
