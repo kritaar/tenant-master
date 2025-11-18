@@ -1,11 +1,13 @@
 from django.conf import settings
-from .models import Tenant
 
 class TenantMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
     
     def __call__(self, request):
+        # Import here to avoid circular import
+        from .models import Tenant
+        
         host = request.get_host().split(':')[0]
         
         request.tenant = None
