@@ -32,11 +32,6 @@ services:
       - panel_media:/app/media
       - /opt/proyectos:/opt/proyectos
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
   redis:
     image: redis:7-alpine
