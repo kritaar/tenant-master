@@ -6,7 +6,7 @@ services:
     container_name: tenant-master-panel
     image: tenant-master-panel:latest
     ports:
-      - "8000:8000"
+      - "8001:8000"
     environment:
       - DEBUG=${DEBUG:-False}
       - SECRET_KEY=${DJANGO_SECRET_KEY}
