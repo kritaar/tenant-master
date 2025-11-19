@@ -42,6 +42,7 @@ services:
       - PORTAINER_ENDPOINT_ID=${PORTAINER_ENDPOINT_ID}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_USERNAME=${GITHUB_USERNAME}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
     labels:
       - "traefik.enable=true"
       # Router específico para el panel (mayor prioridad)
