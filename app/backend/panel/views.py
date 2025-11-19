@@ -215,6 +215,7 @@ def create_workspace(request):
                         tenant.save()
                         messages.info(request, f'Repositorio base ya existe: {product.github_repo_url}')
                         
+                    # Ejecutar deployment
                     deploy_result = deploy_shared_workspace_auto(
                         product.name,
                         subdomain,
@@ -223,14 +224,30 @@ def create_workspace(request):
                         db_password
                     )
                     
+                    print(f"🔍 DEBUG - Deploy result: {deploy_result}")  # Debug
+                    
                     if deploy_result.get('success'):
+                        # ⭐ Marcar como deployed automáticamente
                         tenant.is_deployed = True
                         tenant.save()
-                        messages.success(request, f'Workspace {company_name} desplegado exitosamente en {deploy_result.get("url")}')
+                        
+                        # Registrar en log de actividad
+                        ActivityLog.objects.create(
+                            tenant=tenant,
+                            user=request.user,
+                            action='auto_deployed',
+                            description=f'Workspace deployed automáticamente - URL: {deploy_result.get("url", "N/A")}',
+                            ip_address=get_client_ip(request)
+                        )
+                        
+                        print(f"✅ Workspace marcado como deployed: {subdomain}")  # Debug
+                        messages.success(request, f'✅ Workspace {company_name} desplegado exitosamente en {deploy_result.get("url")}')
                     else:
-                        messages.warning(request, f'Workspace creado pero deployment falló: {deploy_result.get("error")}')
+                        print(f"❌ Deployment falló: {deploy_result.get('error')}")  # Debug
+                        messages.warning(request, f'⚠️ Workspace creado pero deployment falló: {deploy_result.get("error")}')
                 except Exception as e:
-                    messages.warning(request, f'Error en deployment: {str(e)}')
+                    print(f"❌ Excepción en deployment: {str(e)}")  # Debug
+                    messages.warning(request, f'⚠️ Error en deployment: {str(e)}')
             
             if workspace_type == 'dedicated' and create_github_repo:
                 try:
