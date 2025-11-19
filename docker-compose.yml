@@ -100,6 +100,30 @@ services:
       timeout: 5s
       retries: 5
 
+  erp-shared:
+    build:
+      context: /opt/proyectos/erp-system
+      dockerfile: Dockerfile
+    image: erp-shared:latest
+    container_name: tenant-master-erp-shared
+    networks:
+      - tenant-network
+    environment:
+      - DATABASE_NAME=tenant_master
+      - DATABASE_USER=${POSTGRES_USER}
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD}
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - DEBUG=False
+      - ALLOWED_HOSTS=*.surgir.online
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 networks:
   tenant-network:
     driver: bridge
