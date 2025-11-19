@@ -127,7 +127,12 @@ services:
       - /opt/proyectos/erp-system:/app
     restart: unless-stopped
     labels:
-      - "traefik.enable=false"
+      - "traefik.enable=true"
+      - "traefik.http.routers.erp.rule=HostRegexp(`{host:.+}`)"
+      - "traefik.http.routers.erp.entrypoints=websecure"
+      - "traefik.http.routers.erp.tls=true"
+      - "traefik.http.routers.erp.priority=1"
+      - "traefik.http.services.erp.loadbalancer.server.port=8000"
     depends_on:
       postgres:
         condition: service_healthy
