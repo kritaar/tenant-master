@@ -1,0 +1,24 @@
+http:
+  routers:
+    workspaces-http:
+      rule: 'HostRegexp(`{host:.+\.surgir\.online}`)'
+      service: panel-service
+      entryPoints:
+        - web
+      priority: 1
+    
+    workspaces-https:
+      rule: 'HostRegexp(`{host:.+\.surgir\.online}`)'
+      service: panel-service
+      entryPoints:
+        - websecure
+      tls:
+        domains:
+          - main: "*.surgir.online"
+      priority: 1
+  
+  services:
+    panel-service:
+      loadBalancer:
+        servers:
+          - url: "http://tenant-master-panel:8000"

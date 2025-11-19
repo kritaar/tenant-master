@@ -130,3 +130,85 @@ class SyncDeploymentsView(APIView):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+class GitHubWebhookView(APIView):
+    """Recibe webhooks de GitHub para auto-deployment"""
+    permission_classes = []  # Público, validamos con secret
+    
+    def post(self, request, product_name):
+        import hmac
+        import hashlib
+        import subprocess
+        from ..models import ActivityLog
+        
+        # 1. Validar signature de GitHub
+        signature = request.headers.get('X-Hub-Signature-256', '')
+        secret = settings.GITHUB_WEBHOOK_SECRET.encode()
+        
+        expected_signature = 'sha256=' + hmac.new(
+            secret,
+            request.body,
+            hashlib.sha256
+        ).hexdigest()
+        
+        if not hmac.compare_digest(signature, expected_signature):
+            return Response({'error': 'Invalid signature'}, status=403)
+        
+        # 2. Obtener info del push
+        data = request.data
+        ref = data.get('ref', '')
+        
+        # Solo procesar push a main/master
+        if ref not in ['refs/heads/main', 'refs/heads/master']:
+            return Response({'message': 'Branch ignored'}, status=200)
+        
+        # 3. Path del proyecto
+        project_path = f"/opt/proyectos/{product_name}-system"
+        
+        try:
+            # 4. Git pull
+            result_pull = subprocess.run(
+                ['git', 'pull', 'origin', 'main'],
+                cwd=project_path,
+                check=True,
+                capture_output=True,
+                text=True
+            )
+            
+            # 5. Restart contenedor compartido
+            container_name = f"tenant-master-{product_name}-shared"
+            result_restart = subprocess.run(
+                ['docker', 'restart', container_name],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+            
+            # 6. Log de actividad
+            ActivityLog.objects.create(
+                user=None,
+                action='auto-deploy',
+                description=f'Auto-deployment ejecutado para {product_name}',
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+            
+            return Response({
+                'success': True,
+                'message': f'Deployment de {product_name} completado',
+                'project_path': project_path,
+                'container': container_name,
+                'git_output': result_pull.stdout,
+                'docker_output': result_restart.stdout
+            })
+            
+        except subprocess.CalledProcessError as e:
+            return Response({
+                'success': False,
+                'error': str(e),
+                'stderr': e.stderr if hasattr(e, 'stderr') else ''
+            }, status=500)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=500)

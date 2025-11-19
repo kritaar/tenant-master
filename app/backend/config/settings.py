@@ -153,3 +153,6 @@ CORS_ALLOWED_ORIGINS = [
 if DEBUG:
     CORS_ALLOWED_ORIGINS.append('http://localhost:8000')
     CORS_ALLOWED_ORIGINS.append('http://127.0.0.1:8000')
+
+# GitHub Webhook
+GITHUB_WEBHOOK_SECRET = config('GITHUB_WEBHOOK_SECRET', default='change-me-in-production')
