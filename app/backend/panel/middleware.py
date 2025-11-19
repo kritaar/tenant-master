@@ -14,32 +14,29 @@ class TenantMiddleware:
         self.get_response = get_response
     
     def __call__(self, request):
-        import logging
-        logger = logging.getLogger(__name__)
-        
         # Obtener host sin puerto
         host = request.get_host().split(':')[0]
-        logger.info(f"TenantMiddleware: Host={host}")
+        print(f"[TENANT-MW] Host={host}")
         
         # Extraer subdomain (primer segmento antes del dominio base)
         parts = host.split('.')
-        logger.info(f"TenantMiddleware: Parts={parts}")
+        print(f"[TENANT-MW] Parts={parts}")
         
         # Si es el panel principal (panel.surgir.online), dejar pasar
         if parts[0] == 'panel' or len(parts) < 3:
-            logger.info(f"TenantMiddleware: Es panel o dominio corto, continuar")
+            print(f"[TENANT-MW] Es panel o dominio corto, continuar")
             request.tenant = None
             return self.get_response(request)
         
         # Extraer subdomain (ej: autominirep de autominirep.surgir.online)
         subdomain = parts[0]
-        logger.info(f"TenantMiddleware: Buscando subdomain={subdomain}")
+        print(f"[TENANT-MW] Buscando subdomain={subdomain}")
         
         # Buscar tenant por subdomain
         try:
             tenant = Tenant.objects.get(subdomain=subdomain, status='active')
             request.tenant = tenant
-            logger.info(f"TenantMiddleware: Tenant encontrado: {tenant.company_name}, deployed={tenant.is_deployed}")
+            print(f"[TENANT-MW] Tenant encontrado: {tenant.company_name}, deployed={tenant.is_deployed}")
             
             # Si el tenant no está deployed, mostrar página de "en construcción"
             if not tenant.is_deployed:
