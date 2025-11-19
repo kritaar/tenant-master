@@ -45,7 +45,7 @@ services:
     labels:
       - "traefik.enable=true"
       # Router para todos los subdominios (catch-all para *.surgir.online)
-      - 'traefik.http.routers.workspaces.rule=HostRegexp(`{host:.+\\.surgir\\.online}`)'
+      - 'traefik.http.routers.workspaces.rule=HostRegexp(`{host:[a-z0-9-]+\\.surgir\\.online}`)'
       - "traefik.http.routers.workspaces.entrypoints=websecure"
       - "traefik.http.routers.workspaces.tls=true"
       - "traefik.http.routers.workspaces.priority=1"
