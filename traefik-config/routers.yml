@@ -1,0 +1,14 @@
+http:
+  routers:
+    catch-all:
+      rule: "HostRegexp(`{host:.+}`)"
+      service: panel
+      entryPoints:
+        - websecure
+      tls: {}
+      priority: 1
+  services:
+    panel:
+      loadBalancer:
+        servers:
+          - url: "http://tenant-master-panel:8000"

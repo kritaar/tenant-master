@@ -32,4 +32,8 @@ urlpatterns = [
     path('databases/<str:db_name>/users/', views.database_users_api, name='database_users_api'),
     path('activity/', views.activity, name='activity'),
     path('settings/', views.settings_view, name='settings'),
+    
+    # Certificados SSL
+    path('certificates/', views.certificates, name='certificates'),
+    path('certificates/renew/', views.renew_certificate, name='renew_certificate'),
 ]
