@@ -40,21 +40,21 @@ services:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_USERNAME=${GITHUB_USERNAME}
     labels:
-      - traefik.enable=true
+      - "traefik.enable=true"
       # Router para todos los subdominios (catch-all para *.surgir.online)
-      - traefik.http.routers.workspaces.rule=HostRegexp(`{host:.+\.surgir\.online}`)
-      - traefik.http.routers.workspaces.entrypoints=websecure
-      - traefik.http.routers.workspaces.tls=true
-      - traefik.http.routers.workspaces.priority=1
-      - traefik.http.routers.workspaces.service=panel
+      - 'traefik.http.routers.workspaces.rule=HostRegexp(`{host:.+\\.surgir\\.online}`)'
+      - "traefik.http.routers.workspaces.entrypoints=websecure"
+      - "traefik.http.routers.workspaces.tls=true"
+      - "traefik.http.routers.workspaces.priority=1"
+      - "traefik.http.routers.workspaces.service=panel"
       # Router específico para el panel (mayor prioridad)
-      - traefik.http.routers.panel.rule=Host(`panel.surgir.online`)
-      - traefik.http.routers.panel.entrypoints=websecure
-      - traefik.http.routers.panel.tls=true
-      - traefik.http.routers.panel.priority=100
-      - traefik.http.routers.panel.service=panel
+      - 'traefik.http.routers.panel.rule=Host(`panel.surgir.online`)'
+      - "traefik.http.routers.panel.entrypoints=websecure"
+      - "traefik.http.routers.panel.tls=true"
+      - "traefik.http.routers.panel.priority=100"
+      - "traefik.http.routers.panel.service=panel"
       # Servicio
-      - traefik.http.services.panel.loadbalancer.server.port=8000
+      - "traefik.http.services.panel.loadbalancer.server.port=8000"
     depends_on:
       postgres:
         condition: service_healthy
