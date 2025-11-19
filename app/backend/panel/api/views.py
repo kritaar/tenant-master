@@ -139,6 +139,7 @@ class GitHubWebhookView(APIView):
         import hmac
         import hashlib
         import subprocess
+        import docker
         from ..models import ActivityLog
         
         # 1. Validar signature de GitHub
@@ -175,14 +176,18 @@ class GitHubWebhookView(APIView):
                 text=True
             )
             
-            # 5. Restart contenedor compartido
+            # 5. Restart contenedor usando Docker API
             container_name = f"tenant-master-{product_name}-shared"
-            result_restart = subprocess.run(
-                ['docker', 'restart', container_name],
-                check=True,
-                capture_output=True,
-                text=True
-            )
+            
+            try:
+                client = docker.from_env()
+                container = client.containers.get(container_name)
+                container.restart()
+                docker_output = f"Container {container_name} restarted successfully"
+            except docker.errors.NotFound:
+                docker_output = f"Warning: Container {container_name} not found (may not exist yet)"
+            except Exception as docker_err:
+                docker_output = f"Docker restart failed: {str(docker_err)}"
             
             # 6. Log de actividad
             ActivityLog.objects.create(
@@ -198,7 +203,7 @@ class GitHubWebhookView(APIView):
                 'project_path': project_path,
                 'container': container_name,
                 'git_output': result_pull.stdout,
-                'docker_output': result_restart.stdout
+                'docker_output': docker_output
             })
             
         except subprocess.CalledProcessError as e:
