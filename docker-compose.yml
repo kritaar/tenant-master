@@ -101,11 +101,17 @@ services:
       retries: 5
 
   erp-shared:
-    build:
-      context: /opt/proyectos/erp-system
-      dockerfile: Dockerfile
-    image: erp-shared:latest
+    image: python:3.11-slim
     container_name: tenant-master-erp-shared
+    working_dir: /app
+    command: >
+      bash -c "
+      apt-get update && apt-get install -y postgresql-client git &&
+      pip install --no-cache-dir -r requirements.txt &&
+      python manage.py migrate --noinput &&
+      python manage.py collectstatic --noinput --clear &&
+      gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
+      "
     networks:
       - tenant-network
     environment:
@@ -117,6 +123,8 @@ services:
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
       - DEBUG=False
       - ALLOWED_HOSTS=*.surgir.online
+    volumes:
+      - /opt/proyectos/erp-system:/app
     restart: unless-stopped
     labels:
       - "traefik.enable=false"
